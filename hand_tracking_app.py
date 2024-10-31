@@ -2,7 +2,7 @@ import sys
 import cv2
 import os
 import csv
-from PyQt5.QtWidgets import QApplication, QTableWidgetItem, QLabel
+from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QImage, QPixmap
 from camera_viewer_gui import CameraViewerGUI
@@ -46,6 +46,7 @@ class CameraViewerApp(CameraViewerGUI):
         self.analyze_button.clicked.connect(self.analyze_selected_recording)
         self.frame_slider.valueChanged.connect(self.update_frame_from_slider)
         self.recording_combo.currentIndexChanged.connect(self.update_selected_recording)
+        self.refresh_button.clicked.connect(self.refresh_recordings)
 
     def populate_camera_list(self):
         camera_list = []
@@ -58,7 +59,11 @@ class CameraViewerApp(CameraViewerGUI):
 
     def populate_recording_list(self):
         recording_list = [f for f in os.listdir("raw_movie") if f.endswith(".mp4")]
-        self.recording_combo.addItems(recording_list)
+        self.update_recording_combo(recording_list)
+
+    def refresh_recordings(self):
+        self.populate_recording_list()
+        self.log("Refreshed recording list")
 
     def toggle_camera(self):
         if self.camera is None:  # Connect to camera
@@ -173,12 +178,12 @@ class CameraViewerApp(CameraViewerGUI):
         self.set_progress(100)
         self.show_progress_bar(False)
         csv_file = save_to_csv(self.analyzed_data, self.log)
-        self.log(f"Analysis data saved to {csv_file}")
+        self.log("Analysis data saved")
         self.populate_recording_list()
 
     def save_raw_movie(self):
         raw_movie_file = save_raw_movie(self.frames, self.log, self.set_progress)
-        self.log(f"Raw movie saved to {raw_movie_file}")
+        self.log("Raw movie saved")
         self.show_progress_bar(False)
         self.populate_recording_list()
 
@@ -278,7 +283,7 @@ class CameraViewerApp(CameraViewerGUI):
 
                 # Update stats table
                 stats = self.parse_stats(frame_data)
-                self.update_stats_table(self.stats_table, stats)
+                self.update_stats_table(stats)
             else:
                 self.log(f"Invalid frame index: {self.current_frame_index}")
         else:
@@ -304,47 +309,6 @@ class CameraViewerApp(CameraViewerGUI):
 
         return parsed_data
 
-    def update_stats_table(self, table, parsed_data):
-        if parsed_data is None or (
-            isinstance(parsed_data, list) and len(parsed_data) == 0
-        ):
-            table.setRowCount(0)
-            table.setColumnCount(3)
-            table.setHorizontalHeaderLabels(["FRAME", "LEFT", "RIGHT"])
-            return
-
-        num_stats = len(STATS_DICT)
-        table.setRowCount(num_stats)
-        table.setColumnCount(3)  # FRAME, LEFT, RIGHT
-
-        table.setHorizontalHeaderLabels(["FRAME", "LEFT", "RIGHT"])
-
-        vertical_headers = list(STATS_DICT.values())
-        table.setVerticalHeaderLabels(vertical_headers)
-
-        frame_number = (
-            parsed_data.get("frame", 0) if isinstance(parsed_data, dict) else 0
-        )
-
-        for row, stat_name in enumerate(STATS_DICT.values()):
-            table.setItem(row, 0, QTableWidgetItem(str(frame_number)))
-
-            left_value = (
-                parsed_data.get("left", {}).get(stat_name, "N/A")
-                if isinstance(parsed_data, dict)
-                else "N/A"
-            )
-            left_item = QTableWidgetItem(self.format_value(left_value))
-            table.setItem(row, 1, left_item)
-
-            right_value = (
-                parsed_data.get("right", {}).get(stat_name, "N/A")
-                if isinstance(parsed_data, dict)
-                else "N/A"
-            )
-            right_item = QTableWidgetItem(self.format_value(right_value))
-            table.setItem(row, 2, right_item)
-
     def parse_landmarks(self, frame_data, hand):
         landmarks = []
         frame = frame_data.get("frame", 0)
@@ -360,29 +324,6 @@ class CameraViewerApp(CameraViewerGUI):
                     self.log(f"Error parsing landmark {item} for {hand} hand")
         return landmarks
 
-    def update_landmarks_table(self, table, landmarks):
-        table.setColumnCount(len(landmarks))
-        table.setRowCount(1)
-
-        headers = []
-        for idx, landmark in enumerate(landmarks):
-            headers.append(landmark[0])
-            if landmark[0] == "FRAME":
-                value_str = str(landmark[1])
-            else:
-                value_str = f"x: {self.format_value(landmark[1])}\ny: {self.format_value(landmark[2])}\nz: {self.format_value(landmark[3])}"
-            table.setItem(0, idx, QTableWidgetItem(value_str))
-
-        table.setHorizontalHeaderLabels(headers)
-        table.resizeRowsToContents()
-
-    def format_value(self, value):
-        try:
-            num_value = float(value)
-            return f"{num_value:.5f}"
-        except (ValueError, TypeError):
-            return str(value)
-
     def update_selected_recording(self):
         self.clear_analysis_data()
 
@@ -396,7 +337,7 @@ class CameraViewerApp(CameraViewerGUI):
         self.update_analyzed_frame(None)
         self.update_landmarks_table(self.left_landmarks_table, [])
         self.update_landmarks_table(self.right_landmarks_table, [])
-        self.update_stats_table(self.stats_table, [])
+        self.update_stats_table(None)
 
 
 if __name__ == "__main__":

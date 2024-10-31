@@ -20,6 +20,43 @@ from PyQt5.QtCore import Qt, QTimer
 from PyQt5.QtGui import QImage, QPixmap, QStandardItemModel, QStandardItem
 
 
+class TableView(QTableWidget):
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setStyleSheet("QTableView { font-size: 10pt; }")
+        self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
+        self.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
+
+    def update_data(self, data, row_labels=None, column_labels=None):
+        self.clear()
+        if not data:
+            return
+
+        if isinstance(data[0], list):  # 2D data
+            self.setRowCount(len(data))
+            self.setColumnCount(len(data[0]))
+        else:  # 1D data
+            self.setRowCount(1)
+            self.setColumnCount(len(data))
+
+        for i, row in enumerate(data):
+            if isinstance(row, list):
+                for j, value in enumerate(row):
+                    self.setItem(i, j, QTableWidgetItem(str(value)))
+            else:
+                self.setItem(0, i, QTableWidgetItem(str(row)))
+
+        if row_labels:
+            self.setVerticalHeaderLabels(row_labels)
+        if column_labels:
+            self.setHorizontalHeaderLabels(column_labels)
+
+    def clear_data(self):
+        self.clear()
+        self.setRowCount(0)
+        self.setColumnCount(0)
+
+
 class CameraViewerGUI(QMainWindow):
     def __init__(self):
         super().__init__()
@@ -83,12 +120,14 @@ class CameraViewerGUI(QMainWindow):
         recorded_tab = QWidget()
         recorded_layout = QVBoxLayout(recorded_tab)
 
-        # Recording selection and analyze button
+        # Recording selection, analyze button, and refresh button
         selection_layout = QHBoxLayout()
         self.recording_combo = QComboBox()
         selection_layout.addWidget(self.recording_combo)
         self.analyze_button = QPushButton("Analyze")
         selection_layout.addWidget(self.analyze_button)
+        self.refresh_button = QPushButton("Refresh")
+        selection_layout.addWidget(self.refresh_button)
         recorded_layout.addLayout(selection_layout)
 
         # Analyzed image display
@@ -124,24 +163,13 @@ class CameraViewerGUI(QMainWindow):
         # Analyzed data frames
         analyzed_layout = QHBoxLayout()
 
-        self.left_landmarks_table = QTableWidget()
-        self.left_landmarks_table.setStyleSheet("QTableView { font-size: 10pt; }")
-        self.left_landmarks_table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.Stretch
-        )
+        self.left_landmarks_table = TableView()
         analyzed_layout.addWidget(self.left_landmarks_table)
 
-        self.right_landmarks_table = QTableWidget()
-        self.right_landmarks_table.setStyleSheet("QTableView { font-size: 10pt; }")
-        self.right_landmarks_table.horizontalHeader().setSectionResizeMode(
-            QHeaderView.Stretch
-        )
+        self.right_landmarks_table = TableView()
         analyzed_layout.addWidget(self.right_landmarks_table)
 
-        self.stats_table = QTableWidget()
-        self.stats_table.setStyleSheet("QTableView { font-size: 10pt; }")
-        self.stats_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.stats_table.setHorizontalHeaderLabels(["Stat Name", "Left", "Right"])
+        self.stats_table = TableView()
         analyzed_layout.addWidget(self.stats_table)
 
         recorded_layout.addLayout(analyzed_layout)
@@ -200,20 +228,6 @@ class CameraViewerGUI(QMainWindow):
     def append_log(self, message):
         self.log_text.append(message)
 
-    def update_landmarks_table(self, table, landmarks):
-        table.setRowCount(len(landmarks))
-        for row, (name, x, y) in enumerate(landmarks):
-            table.setItem(row, 0, QTableWidgetItem(name))
-            table.setItem(row, 1, QTableWidgetItem(str(x)))
-            table.setItem(row, 2, QTableWidgetItem(str(y)))
-
-    def update_stats_table(self, stats):
-        self.stats_table.setRowCount(len(stats))
-        for row, (name, left, right) in enumerate(stats):
-            self.stats_table.setItem(row, 0, QTableWidgetItem(name))
-            self.stats_table.setItem(row, 1, QTableWidgetItem(str(left)))
-            self.stats_table.setItem(row, 2, QTableWidgetItem(str(right)))
-
     def set_frame_slider_range(self, min_value, max_value):
         self.frame_slider.setRange(min_value, max_value)
 
@@ -226,8 +240,64 @@ class CameraViewerGUI(QMainWindow):
 
     def clear_analysis_data(self):
         self.update_analyzed_frame(None)
-        self.left_landmarks_table.setRowCount(0)
-        self.right_landmarks_table.setRowCount(0)
-        self.stats_table.setRowCount(0)
+        self.left_landmarks_table.clear_data()
+        self.right_landmarks_table.clear_data()
+        self.stats_table.clear_data()
         self.set_frame_slider_range(0, 0)
         self.frame_number_label.setText("Frame: 0")
+
+    def update_recording_combo(self, mp4_files):
+        self.recording_combo.clear()
+        self.recording_combo.addItems(mp4_files)
+
+    def format_value(self, value):
+        try:
+            num_value = float(value)
+            return f"{num_value:.5f}"
+        except (ValueError, TypeError):
+            return str(value)
+
+    def update_landmarks_table(self, table, landmarks):
+        data = []
+        column_labels = []
+        for landmark in landmarks:
+            if landmark[0] == "FRAME":
+                column_labels.append(landmark[0])
+                data.append(str(landmark[1]))
+            else:
+                column_labels.append(landmark[0])
+                data.append(
+                    f"x: {self.format_value(landmark[1])}\ny: {self.format_value(landmark[2])}\nz: {self.format_value(landmark[3])}"
+                )
+        table.update_data(data, column_labels=column_labels)
+        table.resizeRowsToContents()
+
+    def update_stats_table(self, parsed_data):
+        if parsed_data is None or (
+            isinstance(parsed_data, list) and len(parsed_data) == 0
+        ):
+            self.stats_table.clear_data()
+            return
+
+        data = []
+        row_labels = list(parsed_data.get("left", {}).keys())
+        column_labels = ["FRAME", "LEFT", "RIGHT"]
+
+        frame_number = (
+            parsed_data.get("frame", 0) if isinstance(parsed_data, dict) else 0
+        )
+
+        for stat_name in row_labels:
+            left_value = parsed_data.get("left", {}).get(stat_name, "N/A")
+            right_value = parsed_data.get("right", {}).get(stat_name, "N/A")
+            data.append(
+                [
+                    str(frame_number),
+                    self.format_value(left_value),
+                    self.format_value(right_value),
+                ]
+            )
+
+        self.stats_table.update_data(
+            data, row_labels=row_labels, column_labels=column_labels
+        )
