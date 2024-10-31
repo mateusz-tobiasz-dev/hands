@@ -1,0 +1,34 @@
+# Ignore recordings folder
+recordings/
+
+# Ignore heat map folder
+heat_maps/
+
+# Ignore csv folder
+csv_data/
+raw_movie/
+
+# Python-related files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# Virtual environment
+venv/
+env/
+*.env
+
+# IDE-specific files
+.vscode/
+.idea/
+
+# OS-specific files
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# Temporary files
+*.tmp
+.aider*
