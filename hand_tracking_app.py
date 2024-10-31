@@ -75,6 +75,10 @@ class CameraViewerApp(CameraViewerGUI):
             self.update_camera_frame(pixmap)
 
     def start_analyzing(self):
+        if self.camera is None or not self.camera.isOpened():
+            self.log("Cannot start analysis: Camera is not connected")
+            return
+
         self.analyzing = True
         self.frames = []
         self.start_button.setEnabled(False)
@@ -92,13 +96,17 @@ class CameraViewerApp(CameraViewerGUI):
         self.save_raw_movie()
 
     def analyze_frames(self):
-        analyzed_data = self.hand_analyzer.analyze_frames(self.frames)
         total_frames = len(self.frames)
-        for frame_idx, _ in enumerate(analyzed_data):
-            if frame_idx % 10 == 0:
-                progress = int((frame_idx + 1) / total_frames * 100)
-                self.set_progress(progress)
-                QApplication.processEvents()
+        analyzed_data = []
+        for frame_idx, frame in enumerate(self.frames):
+            # Analyze each frame
+            frame_data = self.hand_analyzer.analyze_frame(frame, frame_idx)
+            analyzed_data.append(frame_data)
+
+            # Update progress bar
+            progress = int((frame_idx + 1) / total_frames * 100)
+            self.set_progress(progress)
+            QApplication.processEvents()  # Allow GUI to update
 
         self.set_progress(100)
         self.show_progress_bar(False)

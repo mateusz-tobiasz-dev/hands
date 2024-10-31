@@ -13,13 +13,20 @@ def save_to_csv(data, log_callback):
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     filename = f"csv_data/csv_{timestamp}.csv"
 
-    fieldnames = ["frame"] + sorted(list(data[0].keys() - {"frame"}))
+    # Collect all unique keys from all data items
+    all_keys = set()
+    for item in data:
+        all_keys.update(item.keys())
+
+    fieldnames = ["frame"] + sorted(list(all_keys - {"frame"}))
 
     with open(filename, mode="w", newline="") as file:
         writer = csv.DictWriter(file, fieldnames=fieldnames)
         writer.writeheader()
         for row in data:
-            writer.writerow(row)
+            # Use a dictionary comprehension to ensure all fields are present
+            row_data = {field: row.get(field, None) for field in fieldnames}
+            writer.writerow(row_data)
 
     log_callback(f"Data saved to {filename}")
 
