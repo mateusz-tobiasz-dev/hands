@@ -21,3 +21,18 @@ LANDMARK_DICT = {
     19: "PINKY_DIP",
     20: "PINKY_TIP",
 }
+
+STATS_DICT = {
+    "speed": "Speed",
+    "distance": "Distance",
+    "direction_changes": "Direction Changes",
+    "duration": "Duration",
+    "bounding_box_size": "Bounding Box Size",
+    "confidence": "Confidence",
+    "convex_hull_area": "Convex Hull Area",
+    "movement_label": "Movement Label",
+    "velocity": "Velocity",
+    "thumb_index_distance": "Thumb-Index Distance",
+    "thumb_index_middle_angle": "Thumb-Index-Middle Angle",
+    "movement_direction": "Movement Direction",
+}

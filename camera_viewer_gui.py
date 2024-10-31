@@ -17,7 +17,7 @@ from PyQt5.QtWidgets import (
     QSizePolicy,
 )
 from PyQt5.QtCore import Qt, QTimer
-from PyQt5.QtGui import QImage, QPixmap
+from PyQt5.QtGui import QImage, QPixmap, QStandardItemModel, QStandardItem
 
 
 class CameraViewerGUI(QMainWindow):
@@ -125,14 +125,22 @@ class CameraViewerGUI(QMainWindow):
         analyzed_layout = QHBoxLayout()
 
         self.left_landmarks_table = QTableWidget()
-        self.left_landmarks_table.setHorizontalHeaderLabels(["Landmark", "X", "Y"])
+        self.left_landmarks_table.setStyleSheet("QTableView { font-size: 10pt; }")
+        self.left_landmarks_table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.Stretch
+        )
         analyzed_layout.addWidget(self.left_landmarks_table)
 
         self.right_landmarks_table = QTableWidget()
-        self.right_landmarks_table.setHorizontalHeaderLabels(["Landmark", "X", "Y"])
+        self.right_landmarks_table.setStyleSheet("QTableView { font-size: 10pt; }")
+        self.right_landmarks_table.horizontalHeader().setSectionResizeMode(
+            QHeaderView.Stretch
+        )
         analyzed_layout.addWidget(self.right_landmarks_table)
 
         self.stats_table = QTableWidget()
+        self.stats_table.setStyleSheet("QTableView { font-size: 10pt; }")
+        self.stats_table.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
         self.stats_table.setHorizontalHeaderLabels(["Stat Name", "Left", "Right"])
         analyzed_layout.addWidget(self.stats_table)
 

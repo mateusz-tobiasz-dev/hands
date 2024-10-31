@@ -2,12 +2,13 @@ import sys
 import cv2
 import os
 import csv
-from PyQt5.QtWidgets import QApplication, QTableWidgetItem
-from PyQt5.QtCore import QTimer
+from PyQt5.QtWidgets import QApplication, QTableWidgetItem, QLabel
+from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QImage, QPixmap
 from camera_viewer_gui import CameraViewerGUI
 from hand_analyzer import HandAnalyzer
 from utils import save_to_csv, save_raw_movie, log_message
+from hand_landmarks import LANDMARK_DICT, STATS_DICT
 
 
 class CameraViewerApp(CameraViewerGUI):
@@ -223,19 +224,6 @@ class CameraViewerApp(CameraViewerGUI):
             self.log(f"Error loading CSV data: {str(e)}")
             self.clear_analysis_data()
 
-    def parse_landmarks(self, frame_data, hand):
-        landmarks = []
-        for i in range(21):  # Assuming 21 landmarks per hand
-            x = frame_data.get(f"{hand}_hand_landmark_{i}_x", "")
-            y = frame_data.get(f"{hand}_hand_landmark_{i}_y", "")
-            z = frame_data.get(f"{hand}_hand_landmark_{i}_z", "")
-            if x and y and z:
-                try:
-                    landmarks.append((f"Landmark {i}", float(x), float(y), float(z)))
-                except ValueError:
-                    self.log(f"Error parsing landmark {i} for {hand} hand")
-        return landmarks
-
     def update_frame_slider_range(self):
         if self.frames and self.analyzed_data:
             max_frames = min(len(self.frames), len(self.analyzed_data))
@@ -290,42 +278,110 @@ class CameraViewerApp(CameraViewerGUI):
 
                 # Update stats table
                 stats = self.parse_stats(frame_data)
-                self.update_stats_table(stats)
+                self.update_stats_table(self.stats_table, stats)
             else:
                 self.log(f"Invalid frame index: {self.current_frame_index}")
         else:
             self.log("No frames or analyzed data available for display")
 
     def parse_stats(self, frame_data):
-        stats = [
-            ("Frame", self.current_frame_index, self.current_frame_index),
-            ("Left Hand Visible", frame_data.get("left_hand_visible", "False"), ""),
-            ("Right Hand Visible", "", frame_data.get("right_hand_visible", "False")),
-        ]
+        parsed_data = {"frame": frame_data.get("frame", 0), "left": {}, "right": {}}
 
-        # Add more stats based on the CSV structure
-        for key, value in frame_data.items():
-            if key.startswith("left_") and not key.startswith("left_hand_landmark"):
-                stats.append((key, value, ""))
-            elif key.startswith("right_") and not key.startswith("right_hand_landmark"):
-                stats.append((key, "", value))
+        for hand in ["left", "right"]:
+            for stat_key, stat_name in STATS_DICT.items():
+                value = frame_data.get(f"{hand}_{stat_key}", None)
+                if value is not None:
+                    try:
+                        if isinstance(value, (int, float)):
+                            parsed_data[hand][stat_name] = float(value)
+                        else:
+                            parsed_data[hand][stat_name] = value
+                    except ValueError:
+                        self.log(f"Error parsing stat {stat_name} for {hand} hand")
+                        parsed_data[hand][stat_name] = None
+                else:
+                    parsed_data[hand][stat_name] = None
 
-        return stats
+        return parsed_data
+
+    def update_stats_table(self, table, parsed_data):
+        if parsed_data is None or (
+            isinstance(parsed_data, list) and len(parsed_data) == 0
+        ):
+            table.setRowCount(0)
+            table.setColumnCount(3)
+            table.setHorizontalHeaderLabels(["FRAME", "LEFT", "RIGHT"])
+            return
+
+        num_stats = len(STATS_DICT)
+        table.setRowCount(num_stats)
+        table.setColumnCount(3)  # FRAME, LEFT, RIGHT
+
+        table.setHorizontalHeaderLabels(["FRAME", "LEFT", "RIGHT"])
+
+        vertical_headers = list(STATS_DICT.values())
+        table.setVerticalHeaderLabels(vertical_headers)
+
+        frame_number = (
+            parsed_data.get("frame", 0) if isinstance(parsed_data, dict) else 0
+        )
+
+        for row, stat_name in enumerate(STATS_DICT.values()):
+            table.setItem(row, 0, QTableWidgetItem(str(frame_number)))
+
+            left_value = (
+                parsed_data.get("left", {}).get(stat_name, "N/A")
+                if isinstance(parsed_data, dict)
+                else "N/A"
+            )
+            left_item = QTableWidgetItem(self.format_value(left_value))
+            table.setItem(row, 1, left_item)
+
+            right_value = (
+                parsed_data.get("right", {}).get(stat_name, "N/A")
+                if isinstance(parsed_data, dict)
+                else "N/A"
+            )
+            right_item = QTableWidgetItem(self.format_value(right_value))
+            table.setItem(row, 2, right_item)
+
+    def parse_landmarks(self, frame_data, hand):
+        landmarks = []
+        frame = frame_data.get("frame", 0)
+        landmarks.append(("FRAME", float(frame)))
+        for item in LANDMARK_DICT.values():
+            x = frame_data.get(f"{hand}_{item}_x", 0.0)
+            y = frame_data.get(f"{hand}_{item}_y", 0.0)
+            z = frame_data.get(f"{hand}_{item}_z", 0.0)
+            if x and y and z:
+                try:
+                    landmarks.append((f"{item}", float(x), float(y), float(z)))
+                except ValueError:
+                    self.log(f"Error parsing landmark {item} for {hand} hand")
+        return landmarks
 
     def update_landmarks_table(self, table, landmarks):
-        table.setRowCount(len(landmarks))
-        for row, (name, x, y, z) in enumerate(landmarks):
-            table.setItem(row, 0, QTableWidgetItem(name))
-            table.setItem(row, 1, QTableWidgetItem(f"{x:.4f}"))
-            table.setItem(row, 2, QTableWidgetItem(f"{y:.4f}"))
-            table.setItem(row, 3, QTableWidgetItem(f"{z:.4f}"))
+        table.setColumnCount(len(landmarks))
+        table.setRowCount(1)
 
-    def update_stats_table(self, stats):
-        self.stats_table.setRowCount(len(stats))
-        for row, (name, left, right) in enumerate(stats):
-            self.stats_table.setItem(row, 0, QTableWidgetItem(str(name)))
-            self.stats_table.setItem(row, 1, QTableWidgetItem(str(left)))
-            self.stats_table.setItem(row, 2, QTableWidgetItem(str(right)))
+        headers = []
+        for idx, landmark in enumerate(landmarks):
+            headers.append(landmark[0])
+            if landmark[0] == "FRAME":
+                value_str = str(landmark[1])
+            else:
+                value_str = f"x: {self.format_value(landmark[1])}\ny: {self.format_value(landmark[2])}\nz: {self.format_value(landmark[3])}"
+            table.setItem(0, idx, QTableWidgetItem(value_str))
+
+        table.setHorizontalHeaderLabels(headers)
+        table.resizeRowsToContents()
+
+    def format_value(self, value):
+        try:
+            num_value = float(value)
+            return f"{num_value:.5f}"
+        except (ValueError, TypeError):
+            return str(value)
 
     def update_selected_recording(self):
         self.clear_analysis_data()
@@ -340,7 +396,7 @@ class CameraViewerApp(CameraViewerGUI):
         self.update_analyzed_frame(None)
         self.update_landmarks_table(self.left_landmarks_table, [])
         self.update_landmarks_table(self.right_landmarks_table, [])
-        self.update_stats_table([])
+        self.update_stats_table(self.stats_table, [])
 
 
 if __name__ == "__main__":
