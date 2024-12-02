@@ -20,7 +20,8 @@ from PyQt5.QtWidgets import (
     QProgressDialog,
     QGroupBox,
     QGridLayout,
-    QDoubleSpinBox
+    QDoubleSpinBox,
+    QCheckBox
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QImage, QPixmap, QStandardItemModel, QStandardItem
@@ -164,7 +165,7 @@ class CameraViewerGUI(QMainWindow):
         self.analyzed_label.setAlignment(Qt.AlignCenter)
         self.analyzed_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.analyzed_label.setMinimumSize(320, 240)  # Smaller minimum size
-        self.original_resolution_label = QLabel("Original: --x--")
+        self.original_resolution_label = QLabel("Original: --x-- | FPS: --")
         self.original_resolution_label.setAlignment(Qt.AlignCenter)
         original_layout.addWidget(self.analyzed_label)
         original_layout.addWidget(self.original_resolution_label)
@@ -177,7 +178,7 @@ class CameraViewerGUI(QMainWindow):
         self.trailed_label.setAlignment(Qt.AlignCenter)
         self.trailed_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.trailed_label.setMinimumSize(320, 240)  # Smaller minimum size
-        self.trailed_resolution_label = QLabel("Original: --x--")
+        self.trailed_resolution_label = QLabel("Original: --x-- | FPS: --")
         self.trailed_resolution_label.setAlignment(Qt.AlignCenter)
         trailed_layout.addWidget(self.trailed_label)
         trailed_layout.addWidget(self.trailed_resolution_label)
@@ -190,7 +191,7 @@ class CameraViewerGUI(QMainWindow):
         self.heatmap_label.setAlignment(Qt.AlignCenter)
         self.heatmap_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
         self.heatmap_label.setMinimumSize(320, 240)  # Smaller minimum size
-        self.heatmap_resolution_label = QLabel("Original: --x--")
+        self.heatmap_resolution_label = QLabel("Original: --x-- | FPS: --")
         self.heatmap_resolution_label.setAlignment(Qt.AlignCenter)
         heatmap_layout.addWidget(self.heatmap_label)
         heatmap_layout.addWidget(self.heatmap_resolution_label)
@@ -319,6 +320,10 @@ class CameraViewerGUI(QMainWindow):
         trailing_layout.addWidget(QLabel("Trail Opacity:"), 2, 0)
         trailing_layout.addWidget(self.alpha_input, 2, 1)
         
+        self.black_background_checkbox = QCheckBox("Black Background")
+        self.black_background_checkbox.setChecked(self.settings_handler.get_setting("Trailing", "black_background"))
+        trailing_layout.addWidget(self.black_background_checkbox, 3, 0, 1, 2)
+        
         trailing_group.setLayout(trailing_layout)
         
         # Add save settings button
@@ -368,9 +373,11 @@ class CameraViewerGUI(QMainWindow):
         self.settings_handler.settings["Trailing"]["trail_length"] = self.trail_length_input.value()
         self.settings_handler.settings["Trailing"]["landmark_size"] = self.landmark_size_input.value()
         self.settings_handler.settings["Trailing"]["alpha"] = self.alpha_input.value()
+        self.settings_handler.settings["Trailing"]["black_background"] = self.black_background_checkbox.isChecked()
         
         if self.settings_handler.save_settings():
             QMessageBox.information(self, "Settings Saved", "Settings have been saved successfully!")
+            self.start_analyze_button.setEnabled(True)  # Enable the start button after successful save
         else:
             QMessageBox.warning(self, "Save Error", "Failed to save settings. Please try again.")
 
@@ -404,10 +411,12 @@ class CameraViewerGUI(QMainWindow):
             )
             self.analyzed_label.setPixmap(scaled_pixmap)
             if original_size:
-                self.original_resolution_label.setText(f"Original: {original_size[0]}x{original_size[1]}")
+                current_text = self.original_resolution_label.text()
+                fps_text = " | FPS: --" if " | FPS: " not in current_text else current_text[current_text.find(" | FPS: "):]
+                self.original_resolution_label.setText(f"Original: {original_size[0]}x{original_size[1]}{fps_text}")
         else:
             self.analyzed_label.clear()
-            self.original_resolution_label.setText("Original: --x--")
+            self.original_resolution_label.setText("Original: --x-- | FPS: --")
 
     def update_trailed_frame(self, pixmap, original_size=None):
         if pixmap:
@@ -417,10 +426,12 @@ class CameraViewerGUI(QMainWindow):
             )
             self.trailed_label.setPixmap(scaled_pixmap)
             if original_size:
-                self.trailed_resolution_label.setText(f"Original: {original_size[0]}x{original_size[1]}")
+                current_text = self.trailed_resolution_label.text()
+                fps_text = " | FPS: --" if " | FPS: " not in current_text else current_text[current_text.find(" | FPS: "):]
+                self.trailed_resolution_label.setText(f"Original: {original_size[0]}x{original_size[1]}{fps_text}")
         else:
             self.trailed_label.clear()
-            self.trailed_resolution_label.setText("Original: --x--")
+            self.trailed_resolution_label.setText("Original: --x-- | FPS: --")
 
     def update_heatmap_frame(self, pixmap, original_size=None):
         if pixmap:
@@ -430,10 +441,12 @@ class CameraViewerGUI(QMainWindow):
             )
             self.heatmap_label.setPixmap(scaled_pixmap)
             if original_size:
-                self.heatmap_resolution_label.setText(f"Original: {original_size[0]}x{original_size[1]}")
+                current_text = self.heatmap_resolution_label.text()
+                fps_text = " | FPS: --" if " | FPS: " not in current_text else current_text[current_text.find(" | FPS: "):]
+                self.heatmap_resolution_label.setText(f"Original: {original_size[0]}x{original_size[1]}{fps_text}")
         else:
             self.heatmap_label.clear()
-            self.heatmap_resolution_label.setText("Original: --x--")
+            self.heatmap_resolution_label.setText("Original: --x-- | FPS: --")
 
     def set_progress(self, value):
         self.progress_bar.setValue(value)

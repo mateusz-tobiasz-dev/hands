@@ -244,13 +244,25 @@ class CameraViewerApp(CameraViewerGUI):
     def load_recording(self, recording_name):
         self.frames = []
         cap = cv2.VideoCapture(os.path.join("raw_movie", recording_name))
+        
+        # Get video metadata
+        fps = cap.get(cv2.CAP_PROP_FPS)
+        width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+        height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+        
         while True:
             ret, frame = cap.read()
             if not ret:
                 break
             self.frames.append(frame)
         cap.release()
-        self.log(f"Loaded {recording_name}")
+        
+        # Update resolution and FPS display
+        self.original_resolution_label.setText(f"Original: {width}x{height} | FPS: {fps:.1f}")
+        self.trailed_resolution_label.setText(f"Original: {width}x{height} | FPS: {fps:.1f}")
+        self.heatmap_resolution_label.setText(f"Original: {width}x{height} | FPS: {fps:.1f}")
+        
+        self.log(f"Loaded {recording_name} ({width}x{height} @ {fps:.1f} FPS)")
 
     def load_csv_data(self, recording_name):
         # Remove "raw_movie_" prefix and ".mp4" suffix
@@ -399,12 +411,17 @@ class CameraViewerApp(CameraViewerGUI):
         self.update_stats_table(None)
 
     def generate_trailed_frame(self, current_frame, frame_data, trail_length=None):
-        frame = current_frame.copy()
-        
         # Get settings
         trail_length = trail_length or self.settings_handler.settings["Trailing"]["trail_length"]
         landmark_size = self.settings_handler.settings["Trailing"]["landmark_size"]
         alpha = self.settings_handler.settings["Trailing"]["alpha"]
+        black_background = self.settings_handler.settings["Trailing"]["black_background"]
+        
+        # Create frame based on background setting
+        if black_background:
+            frame = np.zeros_like(current_frame)
+        else:
+            frame = current_frame.copy()
         
         # Get previous frames' data
         start_idx = max(0, self.current_frame_index - trail_length)
