@@ -31,33 +31,61 @@ def save_to_csv(data, log_callback):
     log_callback(f"Data saved to {filename}")
 
 
-def save_raw_movie(frames, log_callback, progress_callback):
-    if not frames:
-        log_callback("No frames to save as movie")
-        return
-
-    os.makedirs("raw_movie", exist_ok=True)
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"raw_movie/raw_movie_{timestamp}.mp4"
-
-    height, width, _ = frames[0].shape
-    fps = 30  # Assuming 30 fps, adjust if needed
-
-    fourcc = cv2.VideoWriter_fourcc(*"mp4v")
-    out = cv2.VideoWriter(filename, fourcc, fps, (width, height))
-
-    total_frames = len(frames)
-
-    for i, frame in enumerate(frames):
-        out.write(frame)
-
-        if i % 10 == 0:
-            progress = int((i + 1) / total_frames * 100)
-            progress_callback(progress)
-
-    out.release()
-    progress_callback(100)
-    log_callback(f"Raw movie saved to {filename}")
+def save_raw_movie(frames, output_path, fps=30, width=None, height=None):
+    """
+    Save frames as a movie file with optional resolution adjustment.
+    
+    Args:
+        frames: List of frames to save
+        output_path: Path to save the movie file
+        fps: Frames per second (default: 30)
+        width: Optional target width for resizing
+        height: Optional target height for resizing
+    
+    Returns:
+        tuple: (success: bool, message: str)
+    """
+    try:
+        if not frames:
+            return False, "No frames to save"
+            
+        # Get original dimensions
+        orig_h, orig_w = frames[0].shape[:2]
+        
+        # Use original dimensions if not specified
+        if width is None:
+            width = orig_w
+        if height is None:
+            height = orig_h
+            
+        # Validate dimensions
+        if width <= 0 or height <= 0:
+            return False, "Invalid resolution specified"
+            
+        # Create video writer
+        fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+        out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+        
+        if not out.isOpened():
+            return False, "Failed to create video writer"
+        
+        # Process and write frames
+        total_frames = len(frames)
+        for i, frame in enumerate(frames):
+            if frame.shape[:2] != (height, width):
+                frame = cv2.resize(frame, (width, height))
+            out.write(frame)
+            
+        out.release()
+        
+        # Verify file was created and has size
+        if not os.path.exists(output_path) or os.path.getsize(output_path) == 0:
+            return False, "Failed to write video file"
+            
+        return True, f"Successfully saved {total_frames} frames to {output_path}"
+        
+    except Exception as e:
+        return False, f"Error saving video: {str(e)}"
 
 
 def log_message(message):

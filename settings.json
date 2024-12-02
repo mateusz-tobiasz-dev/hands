@@ -1,0 +1,13 @@
+{
+    "Resolution": {
+        "save_width": 640,
+        "save_height": 480,
+        "camera_width": 640,
+        "camera_height": 480
+    },
+    "Trailing": {
+        "trail_length": 10,
+        "landmark_size": 2,
+        "alpha": 0.6
+    }
+}
