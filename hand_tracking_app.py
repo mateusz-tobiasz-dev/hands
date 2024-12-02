@@ -48,9 +48,10 @@ class CameraViewerApp(CameraViewerGUI):
         # Analysis controls
         self.start_analyze_button.clicked.connect(self.start_analyzing)
         self.stop_analyze_button.clicked.connect(self.stop_analyzing)
+        self.analyze_button.clicked.connect(self.analyze_selected_recording)
         
         # Recording controls
-        self.recording_combo.currentIndexChanged.connect(self.update_selected_recording)
+        self.recording_combo.currentIndexChanged.connect(self.update_recording_selection)
         self.refresh_button.clicked.connect(self.refresh_recordings)
         
         # Playback controls
@@ -167,8 +168,10 @@ class CameraViewerApp(CameraViewerGUI):
         self.log("Playback stopped")
 
     def analyze_selected_recording(self):
+        """Analyze the currently selected recording when Analyze button is clicked"""
         recording_name = self.recording_combo.currentText()
         if recording_name:
+            self.log(f"Starting analysis of: {recording_name}")
             self.load_recording(recording_name)
             self.load_csv_data(recording_name)
             self.update_frame_slider_range()
@@ -180,9 +183,11 @@ class CameraViewerApp(CameraViewerGUI):
                 self.pause_play_button.setEnabled(False)
                 self.stop_play_button.setEnabled(False)
                 self.pause_play_button.setText("Pause")
+                self.log(f"Finished analyzing: {recording_name}")
+            else:
+                self.log(f"Failed to analyze: {recording_name}")
         else:
             self.log("No recording selected")
-            self.clear_analysis_data()
 
     def load_recording(self, recording_name):
         self.playback_manager.frames = []
@@ -347,20 +352,16 @@ class CameraViewerApp(CameraViewerGUI):
                     self.log(f"Error parsing landmark {item} for {hand} hand")
         return landmarks
 
-    def update_selected_recording(self):
-        self.clear_analysis_data()
+    def update_recording_selection(self):
+        """Just update the selected recording name without starting analysis"""
         recording_name = self.recording_combo.currentText()
         if recording_name:
-            self.analyze_selected_recording()
-            # Enable playback controls if we have data
-            if self.playback_manager.frames and self.playback_manager.analyzed_data:
-                self.start_play_button.setEnabled(True)
-                self.pause_play_button.setEnabled(False)
-                self.stop_play_button.setEnabled(False)
-                self.pause_play_button.setText("Pause")
-                self.log(f"Loaded recording: {recording_name}")
+            self.log(f"Selected recording: {recording_name}")
+            self.clear_analysis_data()
+            self.analyze_button.setEnabled(True)
         else:
             self.log("No recording selected")
+            self.analyze_button.setEnabled(False)
 
     def log(self, message):
         log_msg = log_message(message)
