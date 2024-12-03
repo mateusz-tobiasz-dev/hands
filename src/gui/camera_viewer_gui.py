@@ -33,6 +33,8 @@ import datetime
 import time
 import cv2
 import csv
+from PyQt5.QtCore import Qt, QTimer
+from src.utils.slider import RangeSlider
 
 
 class CameraViewerGUI(QMainWindow):
@@ -199,9 +201,22 @@ class CameraViewerGUI(QMainWindow):
 
         # Frame slider and frame number
         slider_layout = QHBoxLayout()
-        self.frame_slider = QSlider(Qt.Horizontal)
+        
+        self.min_frame_spin = QSpinBox()
+        self.min_frame_spin.setMinimum(0)
+        self.min_frame_spin.valueChanged.connect(self.on_min_frame_changed)
+        slider_layout.addWidget(self.min_frame_spin)
+        self.max_frame_spin = QSpinBox()
+        self.max_frame_spin.setMinimum(0)
+        self.max_frame_spin.valueChanged.connect(self.on_max_frame_changed)
+        slider_layout.addWidget(self.max_frame_spin)
+
+        self.frame_slider = RangeSlider(Qt.Horizontal)
+        self.frame_slider.setMinimum(0)
+        self.frame_slider.setMaximum(0)
+        self.frame_slider.sliderMoved.connect(self.on_slider_moved)
         slider_layout.addWidget(self.frame_slider, 9)
-        self.frame_number_label = QLabel("Frame: 0")
+        self.frame_number_label = QLabel("Frames: 0-0")
         slider_layout.addWidget(self.frame_number_label, 1)
         recorded_layout.addLayout(slider_layout)
 
@@ -320,12 +335,16 @@ class CameraViewerGUI(QMainWindow):
         trailing_layout.addWidget(self.save_trailed_movie_button, 5, 0, 1, 2)
         trailing_group.setLayout(trailing_layout)
         
+        self.save_partial_csv_button = QPushButton("Save Partial CSV")
+        self.save_partial_csv_button.clicked.connect(self.save_partial_csv)
+
         # Add save settings button
         self.save_settings_button = QPushButton("Save Settings")
         self.save_settings_button.clicked.connect(self.save_settings)
         
         # Add groups to settings layout
         settings_layout.addWidget(trailing_group)
+        settings_layout.addWidget(self.save_partial_csv_button)
         settings_layout.addWidget(self.save_settings_button)
         settings_layout.addStretch()
         
@@ -464,15 +483,32 @@ class CameraViewerGUI(QMainWindow):
     def append_log(self, message):
         self.log_text.append(message)
 
-    def set_frame_slider_range(self, min_value, max_value):
-        self.frame_slider.setRange(min_value, max_value)
+    def set_frame_slider_range(self, min_val, max_val):
+        """Set the range of the frame slider"""
+        self.frame_slider.setMinimum(min_val)
+        self.frame_slider.setMaximum(max_val)
+        self.frame_slider.setLow(min_val)
+        self.frame_slider.setHigh(max_val)
+        # Update spinboxes
+        self.min_frame_spin.setRange(min_val, max_val)
+        self.max_frame_spin.setRange(min_val, max_val)
+        self.min_frame_spin.setValue(min_val)
+        self.max_frame_spin.setValue(max_val)
+        self.frame_number_label.setText(f"Frames: {min_val}-{max_val}")
 
     def get_current_frame(self):
-        return self.frame_slider.value()
+        """Get current frame from slider"""
+        return self.frame_slider.low()
 
     def set_current_frame(self, frame):
-        self.frame_slider.setValue(frame)
-        self.frame_number_label.setText(f"Frame: {frame}")
+        """Set current frame in slider"""
+        self.frame_slider.setLow(frame)
+        self.frame_number_label.setText(f"Frames: {frame}-{self.frame_slider.high()}")
+
+    def on_slider_moved(self, low, high):
+        """Handle range slider movement"""
+        self.frame_number_label.setText(f"Frames: {low}-{high}")
+        self.update_frame_from_slider()  # This will call the app's method through inheritance
 
     def clear_analysis_data(self):
         self.update_analyzed_frame(None)
@@ -558,11 +594,15 @@ class CameraViewerGUI(QMainWindow):
         return fps
     
     def save_trailed_movie(self):
-        """Save a movie with trailed landmarks using current settings"""
+        """Save a movie with trailed landmarks using current settings and selected frame range"""
         recording_name = self.recording_combo.currentText()
         if not recording_name:
             self.log("No recording selected")
             return
+        
+        # Get frame range from slider
+        start_frame = self.frame_slider.low()
+        end_frame = self.frame_slider.high()
         
         # Create output directory
         output_dir = "src/data/trailed_movie"
@@ -577,7 +617,8 @@ class CameraViewerGUI(QMainWindow):
             QMessageBox.warning(self, "Warning", "CSV data not found. Please analyze the recording first.")
             return
             
-        output_path = os.path.join(output_dir, f"trailed_{recording_name}")
+        # Add frame range to output filename
+        output_path = os.path.join(output_dir, f"trailed_{timestamp}_frames_{start_frame}-{end_frame}.mp4")
         
         if os.path.exists(output_path):
             reply = QMessageBox.question(self, "File exists", 
@@ -608,9 +649,9 @@ class CameraViewerGUI(QMainWindow):
             fourcc = cv2.VideoWriter_fourcc(*'mp4v')
             out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
             
-            # Process each frame
-            total_frames = len(analyzed_data)
-            for frame_idx in range(total_frames):
+            # Process frames in selected range
+            total_frames = end_frame - start_frame + 1
+            for frame_idx in range(start_frame, end_frame + 1):
                 # Read the original frame
                 cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
                 ret, frame = cap.read()
@@ -626,15 +667,88 @@ class CameraViewerGUI(QMainWindow):
                 out.write(trailed_frame)
                 
                 # Update progress
-                progress = int((frame_idx + 1) / total_frames * 100)
+                progress = int((frame_idx - start_frame + 1) / total_frames * 100)
                 self.set_progress(progress)
-            
+                
             cap.release()
             out.release()
-            QMessageBox.information(self, "Success", "Trailed movie saved successfully!")
+            self.log(f"Saved trailed movie: {output_path}")
             
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save trailed movie: {str(e)}")
         finally:
             self.show_progress_bar(False)
             self.set_progress(0)
+            
+    def on_min_frame_changed(self, value):
+        """Handle minimum frame spinbox change"""
+        if value <= self.frame_slider.high():
+            self.frame_slider.setLow(value)
+            self.frame_number_label.setText(f"Frames: {value}-{self.frame_slider.high()}")
+            self.update_frame_from_slider()
+
+    def on_max_frame_changed(self, value):
+        """Handle maximum frame spinbox change"""
+        if value >= self.frame_slider.low():
+            self.frame_slider.setHigh(value)
+            self.frame_number_label.setText(f"Frames: {self.frame_slider.low()}-{value}")
+            
+    def save_partial_csv(self):
+        """Save CSV data for the selected frame range"""
+        recording_name = self.recording_combo.currentText()
+        if not recording_name:
+            self.log("No recording selected")
+            return
+            
+        # Get frame range from slider
+        start_frame = self.frame_slider.low()
+        end_frame = self.frame_slider.high()
+        
+        # Create output directory
+        output_dir = "src/data/part_csv"
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Get current recording name and check for CSV data
+        timestamp = recording_name[10:-4]  # Remove "raw_movie_" prefix and ".mp4" suffix
+        csv_filename = f"csv_{timestamp}.csv"
+        csv_path = os.path.join(output_dir, csv_filename)
+        
+        if not os.path.exists(csv_path):
+            QMessageBox.warning(self, "Warning", "CSV data not found. Please analyze the recording first.")
+            return
+            
+        # Create output filename with frame range
+        output_filename = f"csv_{timestamp}_frames_{start_frame}-{end_frame}.csv"
+        output_path = os.path.join(output_dir, output_filename)
+        
+        if os.path.exists(output_path):
+            reply = QMessageBox.question(self, "File exists", 
+                                    "A file with this name already exists. Do you want to replace it?",
+                                    QMessageBox.Yes | QMessageBox.No)
+            if reply == QMessageBox.No:
+                return
+        
+        try:
+            # Load original CSV data
+            analyzed_data = []
+            with open(csv_path, mode='r') as file:
+                reader = csv.DictReader(file)
+                fieldnames = reader.fieldnames
+                for row in reader:
+                    analyzed_data.append(row)
+            
+            # Extract selected frame range
+            selected_data = analyzed_data[start_frame:end_frame + 1]
+            
+            # Write selected data to new CSV
+            with open(output_path, mode='w', newline='') as file:
+                writer = csv.DictWriter(file, fieldnames=fieldnames)
+                writer.writeheader()
+                for row in selected_data:
+                    writer.writerow(row)
+            
+            self.log(f"Saved partial CSV: {output_path}")
+            QMessageBox.information(self, "Success", f"Saved partial CSV with {len(selected_data)} frames")
+            
+        except Exception as e:
+            QMessageBox.critical(self, "Error", f"Failed to save partial CSV: {str(e)}")
