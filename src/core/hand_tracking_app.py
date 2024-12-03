@@ -17,6 +17,7 @@ from src.managers.recording_manager import RecordingManager
 from src.managers.playback_manager import PlaybackManager
 from src.managers.analysis_manager import AnalysisManager
 from src.managers.visualization_manager import VisualizationManager
+import time
 
 
 class CameraViewerApp(CameraViewerGUI):
@@ -33,6 +34,11 @@ class CameraViewerApp(CameraViewerGUI):
         self.timer.timeout.connect(self.update_frame)
         self.playback_timer = QTimer()
         self.playback_timer.timeout.connect(self.update_playback_frame)
+        
+        # FPS calculation
+        self.frame_times = []
+        self.fps_update_interval = 1.0  # Update FPS every second
+        self.last_fps_update = time.time()
         
         self.connect_signals()
         self.populate_camera_list()
@@ -75,16 +81,19 @@ class CameraViewerApp(CameraViewerGUI):
     def toggle_camera(self):
         if not self.camera_manager.camera:
             camera_index = int(self.camera_combo.currentText().split()[-1])
-            width, height = self.get_save_resolution()
+            width, height = self.get_camera_resolution()
             
             if self.camera_manager.connect_camera(camera_index, width, height):
+                actual_width, actual_height = self.camera_manager.get_actual_resolution()
+                self.log(f"Camera connected with resolution: {actual_width}x{actual_height} (requested: {width}x{height})")
                 self.connect_button.setText("Disconnect")
                 self.timer.start(30)
                 self.start_analyze_button.setEnabled(True)
-                self.log("Camera connected")
             else:
                 self.log("Failed to open camera")
         else:
+            if self.recording_manager.is_recording:
+                self.stop_analyzing()
             self.timer.stop()
             self.camera_manager.disconnect_camera()
             self.connect_button.setText("Connect")
@@ -96,6 +105,21 @@ class CameraViewerApp(CameraViewerGUI):
     def update_frame(self):
         ret, frame = self.camera_manager.read_frame()
         if ret:
+            # Calculate FPS
+            current_time = time.time()
+            self.frame_times.append(current_time)
+            
+            # Remove frames older than 1 second
+            while self.frame_times and self.frame_times[0] < current_time - 1.0:
+                self.frame_times.pop(0)
+            
+            # Update FPS display every second
+            if current_time - self.last_fps_update >= self.fps_update_interval:
+                fps = len(self.frame_times)
+                actual_width, actual_height = self.camera_manager.get_actual_resolution()
+                self.update_resolution_display(actual_width, actual_height, fps)
+                self.last_fps_update = current_time
+
             if self.recording_manager.is_recording:
                 self.recording_manager.add_frame(frame)
 

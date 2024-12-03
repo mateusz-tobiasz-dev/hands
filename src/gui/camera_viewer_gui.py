@@ -75,6 +75,27 @@ class CameraViewerGUI(QMainWindow):
         self.showMaximized()
         
         self.settings_handler = SettingsHandler()
+        self.resolution_presets = {
+            "1:1 Ratio": [
+                ("640x640", 320, 320),
+                ("640x640", 640, 640),
+                ("800x800", 800, 800),
+                ("1024x1024", 1024, 1024)
+            ],
+            "4:3 Ratio": [
+                ("320x240", 320, 240),
+                ("640x480", 640, 480),
+                ("800x600", 800, 600),
+                ("1024x768", 1024, 768),
+                ("1600x1200", 1600, 1200)
+            ],
+            "16:9 Ratio": [
+                ("640x360", 640, 360),
+                ("1280x720", 1280, 720),
+                ("1600x900", 1600, 900),
+                ("1920x1080", 1920, 1080)
+            ]
+        }
         self.setup_ui()
         self.connect_resolution_signals()
         self.validate_and_update_resolution()
@@ -114,9 +135,9 @@ class CameraViewerGUI(QMainWindow):
         self.camera_label.setMinimumSize(640, 480)  # Set minimum size
         camera_frame_layout.addWidget(self.camera_label)
 
-        self.resolution_label = QLabel("Resolution: --x-- | FPS: --")
-        self.resolution_label.setAlignment(Qt.AlignCenter)
-        camera_frame_layout.addWidget(self.resolution_label)
+        self.camera_resolution_label = QLabel("Resolution: --x-- | FPS: --")
+        self.camera_resolution_label.setAlignment(Qt.AlignCenter)
+        camera_frame_layout.addWidget(self.camera_resolution_label)
 
         camera_layout.addWidget(self.camera_frame, 1)
 
@@ -269,32 +290,32 @@ class CameraViewerGUI(QMainWindow):
         resolution_group = QGroupBox("Resolution")
         resolution_layout = QGridLayout()
         
-        self.save_width_input = QSpinBox()
-        self.save_width_input.setRange(320, 1920)
-        self.save_width_input.setValue(self.settings_handler.get_setting("Resolution", "save_width"))
+        # Resolution presets
+        resolution_layout.addWidget(QLabel("Presets:"), 0, 0)
+        self.preset_combo = QComboBox()
+        for ratio in self.resolution_presets:
+            self.preset_combo.addItem(ratio)
+        resolution_layout.addWidget(self.preset_combo, 0, 1)
         
-        self.save_height_input = QSpinBox()
-        self.save_height_input.setRange(240, 1080)
-        self.save_height_input.setValue(self.settings_handler.get_setting("Resolution", "save_height"))
+        self.resolution_combo = QComboBox()
+        self.resolution_combo.currentTextChanged.connect(self.on_preset_selected)
+        resolution_layout.addWidget(self.resolution_combo, 0, 2)
         
+        # Manual resolution inputs
+        resolution_layout.addWidget(QLabel("Custom Width:"), 1, 0)
         self.camera_width_input = QSpinBox()
         self.camera_width_input.setRange(320, 1920)
         self.camera_width_input.setValue(self.settings_handler.get_setting("Resolution", "camera_width"))
+        resolution_layout.addWidget(self.camera_width_input, 1, 1)
         
+        resolution_layout.addWidget(QLabel("Custom Height:"), 2, 0)
         self.camera_height_input = QSpinBox()
         self.camera_height_input.setRange(240, 1080)
         self.camera_height_input.setValue(self.settings_handler.get_setting("Resolution", "camera_height"))
-        
-        resolution_layout.addWidget(QLabel("Save Width:"), 0, 0)
-        resolution_layout.addWidget(self.save_width_input, 0, 1)
-        resolution_layout.addWidget(QLabel("Save Height:"), 1, 0)
-        resolution_layout.addWidget(self.save_height_input, 1, 1)
-        resolution_layout.addWidget(QLabel("Camera Width:"), 2, 0)
-        resolution_layout.addWidget(self.camera_width_input, 2, 1)
-        resolution_layout.addWidget(QLabel("Camera Height:"), 3, 0)
-        resolution_layout.addWidget(self.camera_height_input, 3, 1)
+        resolution_layout.addWidget(self.camera_height_input, 2, 1)
         
         resolution_group.setLayout(resolution_layout)
+        settings_layout.addWidget(resolution_group)
         
         # Trailing Settings Group
         trailing_group = QGroupBox("Trailing")
@@ -331,70 +352,82 @@ class CameraViewerGUI(QMainWindow):
         self.save_settings_button.clicked.connect(self.save_settings)
         
         # Add groups to settings layout
-        settings_layout.addWidget(resolution_group)
         settings_layout.addWidget(trailing_group)
         settings_layout.addWidget(self.save_settings_button)
         settings_layout.addStretch()
         
         self.settings_widget.setLayout(settings_layout)
 
+    def on_preset_selected(self, text):
+        if not text:
+            return
+        width, height = map(int, text.split('x'))
+        self.camera_width_input.setValue(width)
+        self.camera_height_input.setValue(height)
+
     def connect_resolution_signals(self):
-        self.save_width_input.valueChanged.connect(self.validate_resolution)
-        self.save_height_input.valueChanged.connect(self.validate_resolution)
-        self.camera_width_input.valueChanged.connect(self.validate_resolution)
-        self.camera_height_input.valueChanged.connect(self.validate_resolution)
+        self.preset_combo.currentTextChanged.connect(self.update_resolution_presets)
+        
+    def update_resolution_presets(self, ratio):
+        self.resolution_combo.clear()
+        if ratio in self.resolution_presets:
+            for preset in self.resolution_presets[ratio]:
+                self.resolution_combo.addItem(preset[0])
 
-    def validate_and_update_resolution(self):
-        # Validate loaded settings
-        if not self.validate_resolution():
-            # If invalid, reset to default 16:9 resolution
-            self.save_width_input.setValue(1280)
-            self.save_height_input.setValue(720)
-            self.camera_width_input.setValue(1280)
-            self.camera_height_input.setValue(720)
-
-    def get_save_resolution(self):
-        return (self.save_width_input.value(), self.save_height_input.value())
-
-    def get_camera_resolution(self):
-        return (self.camera_width_input.value(), self.camera_height_input.value())
+    def update_resolution_display(self, width, height, fps):
+        self.camera_resolution_label.setText(f"Resolution: {width}x{height} | FPS: {fps:.1f}")
 
     def save_settings(self):
         if not self.validate_resolution():
             QMessageBox.warning(self, "Invalid Resolution", 
-                              "Please ensure the resolution has a valid aspect ratio (16:9 or 4:3)")
-            return
+                              "Please use a valid resolution ratio (1:1, 16:9, or 4:3) within range 320x240 to 1920x1080")
+            return False
 
-        self.settings_handler.settings["Resolution"]["save_width"] = self.save_width_input.value()
-        self.settings_handler.settings["Resolution"]["save_height"] = self.save_height_input.value()
-        self.settings_handler.settings["Resolution"]["camera_width"] = self.camera_width_input.value()
-        self.settings_handler.settings["Resolution"]["camera_height"] = self.camera_height_input.value()
+        # Save all settings
+        self.settings_handler.set_setting("Resolution", "camera_width", self.camera_width_input.value())
+        self.settings_handler.set_setting("Resolution", "camera_height", self.camera_height_input.value())
         
-        self.settings_handler.settings["Trailing"]["trail_length"] = self.trail_length_input.value()
-        self.settings_handler.settings["Trailing"]["landmark_size"] = self.landmark_size_input.value()
-        self.settings_handler.settings["Trailing"]["alpha"] = self.alpha_input.value()
-        self.settings_handler.settings["Trailing"]["black_background"] = self.black_background_checkbox.isChecked()
+        self.settings_handler.set_setting("Trailing", "trail_length", self.trail_length_input.value())
+        self.settings_handler.set_setting("Trailing", "landmark_size", self.landmark_size_input.value())
+        self.settings_handler.set_setting("Trailing", "alpha", self.alpha_input.value())
+        self.settings_handler.set_setting("Trailing", "black_background", self.black_background_checkbox.isChecked())
         
-        if self.settings_handler.save_settings():
-            QMessageBox.information(self, "Settings Saved", "Settings have been saved successfully!")
-            self.start_analyze_button.setEnabled(True)  # Enable the start button after successful save
+        self.settings_handler.save_settings()
+        
+        # Reconnect camera if it's currently connected
+        if hasattr(self, 'camera_manager') and self.camera_manager.camera:
+            self.log("Settings saved, reconnecting camera...")
+            self.toggle_camera()  # Disconnect
+            self.toggle_camera()  # Connect with new resolution
         else:
-            QMessageBox.warning(self, "Save Error", "Failed to save settings. Please try again.")
+            self.log("Settings saved successfully")
+            
+        QMessageBox.information(self, "Settings Saved", "Settings have been saved successfully!")
+        return True
 
     def validate_resolution(self):
-        width = self.save_width_input.value()
-        height = self.save_height_input.value()
-
-        # Validate aspect ratio (roughly 16:9 or 4:3)
-        aspect_ratio = width / height
-        is_valid = (1.7 <= aspect_ratio <= 1.8) or (1.3 <= aspect_ratio <= 1.4)
-
-        # Update spinbox styling based on validation
-        style = "" if is_valid else "background-color: #FFEBEE;"  # Light red for invalid
-        self.save_width_input.setStyleSheet(style)
-        self.save_height_input.setStyleSheet(style)
+        camera_width = self.camera_width_input.value()
+        camera_height = self.camera_height_input.value()
         
-        return is_valid
+        # Basic range check
+        if not (320 <= camera_width <= 1920 and 240 <= camera_height <= 1080):
+            return False
+            
+        # Check aspect ratios (1:1, 16:9, 4:3)
+        ratio = camera_width / camera_height
+        allowed_ratios = [1.0, 16/9, 4/3]  # 1:1, 16:9, 4:3
+        ratio_tolerance = 0.01  # Allow small deviation
+        
+        return any(abs(ratio - allowed) < ratio_tolerance for allowed in allowed_ratios)
+
+    def validate_and_update_resolution(self):
+        if not self.validate_resolution():
+            self.camera_width_input.setValue(640)
+            self.camera_height_input.setValue(640)
+            self.validate_resolution()
+
+    def get_camera_resolution(self):
+        return (self.camera_width_input.value(), self.camera_height_input.value())
 
     def update_camera_frame(self, pixmap):
         scaled_pixmap = pixmap.scaled(
@@ -561,7 +594,7 @@ class CameraViewerGUI(QMainWindow):
         output_path = f"src/data/raw_movie/raw_movie_{timestamp}.mp4"
         
         # Get current resolution settings
-        width, height = self.get_save_resolution()
+        width, height = self.get_camera_resolution()
         
         # Show progress dialog
         progress = QProgressDialog("Saving video...", None, 0, 100, self)

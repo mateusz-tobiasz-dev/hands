@@ -39,8 +39,8 @@ def save_raw_movie(frames, output_path, fps=30, width=None, height=None):
         frames: List of frames to save
         output_path: Path to save the movie file
         fps: Frames per second (default: 30)
-        width: Optional target width for resizing
-        height: Optional target height for resizing
+        width: Optional target width for resizing (uses original width if None)
+        height: Optional target height for resizing (uses original height if None)
     
     Returns:
         tuple: (success: bool, message: str)

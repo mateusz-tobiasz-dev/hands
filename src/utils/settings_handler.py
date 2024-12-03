@@ -3,10 +3,8 @@ import os
 
 DEFAULT_SETTINGS = {
     "Resolution": {
-        "save_width": 640,
-        "save_height": 480,
         "camera_width": 640,
-        "camera_height": 480
+        "camera_height": 640
     },
     "Trailing": {
         "trail_length": 10,
@@ -37,14 +35,8 @@ class SettingsHandler:
                         self.settings[group][key] = DEFAULT_SETTINGS[group][key]
         
         # Validate resolution values
-        save_width = self.settings["Resolution"]["save_width"]
-        save_height = self.settings["Resolution"]["save_height"]
         camera_width = self.settings["Resolution"]["camera_width"]
         camera_height = self.settings["Resolution"]["camera_height"]
-        
-        if not self.is_valid_resolution(save_width, save_height):
-            self.settings["Resolution"]["save_width"] = DEFAULT_SETTINGS["Resolution"]["save_width"]
-            self.settings["Resolution"]["save_height"] = DEFAULT_SETTINGS["Resolution"]["save_height"]
         
         if not self.is_valid_resolution(camera_width, camera_height):
             self.settings["Resolution"]["camera_width"] = DEFAULT_SETTINGS["Resolution"]["camera_width"]
@@ -69,9 +61,9 @@ class SettingsHandler:
         if width < 320 or width > 1920 or height < 240 or height > 1080:
             return False
         
-        # Validate aspect ratio (roughly 16:9 or 4:3)
+        # Allow 1:1 ratio along with 16:9 and 4:3
         aspect_ratio = width / height if height != 0 else 0
-        return (1.7 <= aspect_ratio <= 1.8) or (1.3 <= aspect_ratio <= 1.4)
+        return (1.7 <= aspect_ratio <= 1.8) or (1.3 <= aspect_ratio <= 1.4) or (0.95 <= aspect_ratio <= 1.05)
 
     def is_valid_trailing(self, trail_length, landmark_size, alpha, black_background):
         if not isinstance(trail_length, (int, float)) or not isinstance(landmark_size, (int, float)) or not isinstance(alpha, (int, float)) or not isinstance(black_background, bool):

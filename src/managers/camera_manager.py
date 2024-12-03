@@ -23,6 +23,13 @@ class CameraManager:
             return True
         return False
     
+    def get_actual_resolution(self):
+        if self.camera:
+            actual_width = int(self.camera.get(cv2.CAP_PROP_FRAME_WIDTH))
+            actual_height = int(self.camera.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            return actual_width, actual_height
+        return None
+    
     def disconnect_camera(self):
         if self.camera:
             self.camera.release()
