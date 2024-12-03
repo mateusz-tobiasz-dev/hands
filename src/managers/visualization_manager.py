@@ -1,7 +1,7 @@
 import cv2
 import numpy as np
-from drawing_utils import get_hand_colors, get_finger_idx
-from hand_landmarks import LANDMARK_DICT
+from src.utils.drawing_utils import get_hand_colors, get_finger_idx
+from src.core.hand_landmarks import LANDMARK_DICT
 
 class VisualizationManager:
     def __init__(self, settings_handler):

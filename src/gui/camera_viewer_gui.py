@@ -25,8 +25,8 @@ from PyQt5.QtWidgets import (
 )
 from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QImage, QPixmap, QStandardItemModel, QStandardItem
-from settings_handler import SettingsHandler
-from utils import save_raw_movie
+from src.utils.settings_handler import SettingsHandler
+from src.utils.utils import save_raw_movie
 import os
 import datetime
 import time
@@ -556,9 +556,9 @@ class CameraViewerGUI(QMainWindow):
             return
             
         # Create output directory if it doesn't exist
-        os.makedirs("raw_movie", exist_ok=True)
+        os.makedirs("src/data/raw_movie", exist_ok=True)
         timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_path = f"raw_movie/raw_movie_{timestamp}.mp4"
+        output_path = f"src/data/raw_movie/raw_movie_{timestamp}.mp4"
         
         # Get current resolution settings
         width, height = self.get_save_resolution()

@@ -1,5 +1,5 @@
 import numpy as np
-from hand_landmarks import LANDMARK_DICT
+from src.core.hand_landmarks import LANDMARK_DICT
 
 
 class Hand:

@@ -9,9 +9,9 @@ def save_to_csv(data, log_callback):
         log_callback("No data to save")
         return
 
-    os.makedirs("csv_data", exist_ok=True)
+    os.makedirs("src/data/csv_data", exist_ok=True)
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    filename = f"csv_data/csv_{timestamp}.csv"
+    filename = f"src/data/csv_data/csv_{timestamp}.csv"
 
     # Collect all unique keys from all data items
     all_keys = set()

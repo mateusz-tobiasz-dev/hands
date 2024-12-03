@@ -1,6 +1,6 @@
 import os
 from datetime import datetime
-from utils import save_raw_movie
+from src.utils.utils import save_raw_movie
 
 class RecordingManager:
     def __init__(self):
@@ -25,20 +25,20 @@ class RecordingManager:
             self.frames.append(frame)
     
     def get_recording_list(self):
-        return [f for f in os.listdir("raw_movie") if f.endswith(".mp4")]
+        return [f for f in os.listdir("src/data/raw_movie") if f.endswith(".mp4")]
     
     def save_recording(self):
         if not self.frames:
             return None
             
         # Create output directory
-        os.makedirs("raw_movie", exist_ok=True)
+        os.makedirs("src/data/raw_movie", exist_ok=True)
         
         # Use the timestamp from start_recording
         if not self.current_timestamp:
             self.current_timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
             
-        output_path = os.path.join("raw_movie", f"raw_movie_{self.current_timestamp}.mp4")
+        output_path = os.path.join("src/data/raw_movie", f"raw_movie_{self.current_timestamp}.mp4")
         return save_raw_movie(self.frames, output_path)
     
     def get_current_timestamp(self):

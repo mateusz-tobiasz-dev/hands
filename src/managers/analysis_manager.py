@@ -1,7 +1,7 @@
 import os
 import csv
-from hand_analyzer import HandAnalyzer
-from utils import save_to_csv
+from src.core.hand_analyzer import HandAnalyzer
+from src.utils.utils import save_to_csv
 
 class AnalysisManager:
     def __init__(self):
@@ -28,8 +28,8 @@ class AnalysisManager:
                 logger("No data to save")
             return False
             
-        os.makedirs("csv_data", exist_ok=True)
-        filename = os.path.join("csv_data", f"csv_{timestamp}.csv")
+        os.makedirs("src/data/csv_data", exist_ok=True)
+        filename = os.path.join("src/data/csv_data", f"csv_{timestamp}.csv")
         
         # Collect all unique keys from all data items
         all_keys = set()

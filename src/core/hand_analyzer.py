@@ -1,9 +1,9 @@
 import cv2
 import numpy as np
 import mediapipe as mp
-from hand_classes import Hands
+from src.core.hand_classes import Hands
 from scipy.spatial import ConvexHull
-from hand_landmarks import LANDMARK_DICT
+from src.core.hand_landmarks import LANDMARK_DICT
 
 
 class HandAnalyzer:

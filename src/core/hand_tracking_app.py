@@ -5,18 +5,18 @@ import csv
 from PyQt5.QtWidgets import QApplication
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QImage, QPixmap
-from camera_viewer_gui import CameraViewerGUI
-from hand_analyzer import HandAnalyzer
-from utils import save_to_csv, save_raw_movie, log_message
-from hand_landmarks import LANDMARK_DICT, STATS_DICT
+from src.gui.camera_viewer_gui import CameraViewerGUI
+from src.core.hand_analyzer import HandAnalyzer
+from src.utils.utils import save_to_csv, save_raw_movie, log_message
+from src.core.hand_landmarks import LANDMARK_DICT, STATS_DICT
 from datetime import datetime
 import numpy as np
-from drawing_utils import get_hand_colors, get_finger_idx
-from camera_manager import CameraManager
-from recording_manager import RecordingManager
-from playback_manager import PlaybackManager
-from analysis_manager import AnalysisManager
-from visualization_manager import VisualizationManager
+from src.utils.drawing_utils import get_hand_colors, get_finger_idx
+from src.managers.camera_manager import CameraManager
+from src.managers.recording_manager import RecordingManager
+from src.managers.playback_manager import PlaybackManager
+from src.managers.analysis_manager import AnalysisManager
+from src.managers.visualization_manager import VisualizationManager
 
 
 class CameraViewerApp(CameraViewerGUI):
@@ -191,7 +191,7 @@ class CameraViewerApp(CameraViewerGUI):
 
     def load_recording(self, recording_name):
         self.playback_manager.frames = []
-        cap = cv2.VideoCapture(os.path.join("raw_movie", recording_name))
+        cap = cv2.VideoCapture(os.path.join("src/data/raw_movie", recording_name))
         
         # Get video metadata
         fps = cap.get(cv2.CAP_PROP_FPS)
@@ -216,7 +216,7 @@ class CameraViewerApp(CameraViewerGUI):
         # Remove "raw_movie_" prefix and ".mp4" suffix
         timestamp = recording_name[10:-4]
         csv_filename = f"csv_{timestamp}.csv"
-        csv_path = os.path.join("csv_data", csv_filename)
+        csv_path = os.path.join("src/data/csv_data", csv_filename)
         self.playback_manager.analyzed_data = []
         try:
             with open(csv_path, "r") as csv_file:
