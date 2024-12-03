@@ -7,6 +7,7 @@
         "trail_length": 60,
         "landmark_size": 2,
         "alpha": 1.0,
-        "black_background": false
+        "black_background": true,
+        "alpha_fade": true
     }
 }

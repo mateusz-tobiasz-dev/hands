@@ -10,7 +10,8 @@ DEFAULT_SETTINGS = {
         "trail_length": 10,
         "landmark_size": 2,
         "alpha": 0.6,
-        "black_background": False
+        "black_background": False,
+        "alpha_fade": True
     }
 }
 
@@ -47,8 +48,9 @@ class SettingsHandler:
         landmark_size = self.settings["Trailing"]["landmark_size"]
         alpha = self.settings["Trailing"]["alpha"]
         black_background = self.settings["Trailing"]["black_background"]
+        alpha_fade = self.settings["Trailing"]["alpha_fade"]
         
-        if not self.is_valid_trailing(trail_length, landmark_size, alpha, black_background):
+        if not self.is_valid_trailing(trail_length, landmark_size, alpha, black_background, alpha_fade):
             self.settings["Trailing"] = DEFAULT_SETTINGS["Trailing"].copy()
         
         # Save validated settings
@@ -65,8 +67,8 @@ class SettingsHandler:
         aspect_ratio = width / height if height != 0 else 0
         return (1.7 <= aspect_ratio <= 1.8) or (1.3 <= aspect_ratio <= 1.4) or (0.95 <= aspect_ratio <= 1.05)
 
-    def is_valid_trailing(self, trail_length, landmark_size, alpha, black_background):
-        if not isinstance(trail_length, (int, float)) or not isinstance(landmark_size, (int, float)) or not isinstance(alpha, (int, float)) or not isinstance(black_background, bool):
+    def is_valid_trailing(self, trail_length, landmark_size, alpha, black_background, alpha_fade):
+        if not isinstance(trail_length, (int, float)) or not isinstance(landmark_size, (int, float)) or not isinstance(alpha, (int, float)) or not isinstance(black_background, bool) or not isinstance(alpha_fade, bool):
             return False
         
         if trail_length < 1 or trail_length > 100 or landmark_size < 1 or landmark_size > 10 or alpha < 0 or alpha > 1:

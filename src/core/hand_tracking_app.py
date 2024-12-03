@@ -235,32 +235,41 @@ class CameraViewerApp(CameraViewerGUI):
         # Load the recording first
         self.load_recording(recording_name)
         
-        # Analyze the frames
-        if self.playback_manager.frames:
-            self.analysis_manager.analyze_frames(self.playback_manager.frames, self.set_progress)
-            
-            # Save analysis with timestamp from recording name
-            if self.analysis_manager.save_analysis(timestamp, self.log):
-                # Load the analysis data
-                self.load_csv_data(recording_name)
-                self.update_frame_slider_range()
-                self.update_analysis_display()
+        try:
+            # Analyze the frames
+            if self.playback_manager.frames:
+                # Create a callback for progress updates
+                def progress_callback(value):
+                    self.set_progress(value)
+                    
+                self.analysis_manager.analyze_frames(self.playback_manager.frames, progress_callback)
                 
-                # Enable playback controls if we have data
-                if self.playback_manager.frames and self.playback_manager.analyzed_data:
-                    self.start_play_button.setEnabled(True)
-                    self.pause_play_button.setEnabled(False)
-                    self.stop_play_button.setEnabled(False)
-                    self.pause_play_button.setText("Pause")
-                    self.log(f"Analysis completed successfully: {recording_name}")
+                # Save analysis with timestamp from recording name
+                if self.analysis_manager.save_analysis(timestamp, self.log):
+                    # Load the analysis data
+                    self.load_csv_data(recording_name)
+                    self.update_frame_slider_range()
+                    self.update_analysis_display()
+                    
+                    # Enable playback controls if we have data
+                    if self.playback_manager.frames and self.playback_manager.analyzed_data:
+                        self.start_play_button.setEnabled(True)
+                        self.pause_play_button.setEnabled(False)
+                        self.stop_play_button.setEnabled(False)
+                        self.pause_play_button.setText("Pause")
+                        self.log(f"Analysis completed successfully: {recording_name}")
+                    else:
+                        self.log(f"Failed to load analysis data: {recording_name}")
                 else:
-                    self.log(f"Failed to load analysis data: {recording_name}")
+                    self.log(f"Failed to save analysis: {recording_name}")
             else:
-                self.log(f"Failed to save analysis: {recording_name}")
-        else:
-            self.log(f"Failed to load recording: {recording_name}")
-        
-        self.show_progress_bar(False)
+                self.log(f"Failed to load recording: {recording_name}")
+                
+        except Exception as e:
+            self.log(f"Error during analysis: {str(e)}")
+        finally:
+            self.show_progress_bar(False)
+            self.set_progress(0)
 
     def load_recording(self, recording_name):
         self.playback_manager.frames = []

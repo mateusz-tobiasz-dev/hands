@@ -27,45 +27,12 @@ from PyQt5.QtCore import Qt
 from PyQt5.QtGui import QImage, QPixmap, QStandardItemModel, QStandardItem
 from src.utils.settings_handler import SettingsHandler
 from src.utils.utils import save_raw_movie
+from src.gui.table_view import TableView
 import os
 import datetime
 import time
-
-class TableView(QTableWidget):
-    def __init__(self, parent=None):
-        super().__init__(parent)
-        self.setStyleSheet("QTableView { font-size: 10pt; }")
-        self.horizontalHeader().setSectionResizeMode(QHeaderView.Stretch)
-        self.verticalHeader().setSectionResizeMode(QHeaderView.Stretch)
-
-    def update_data(self, data, row_labels=None, column_labels=None):
-        self.clear()
-        if not data:
-            return
-
-        if isinstance(data[0], list):  # 2D data
-            self.setRowCount(len(data))
-            self.setColumnCount(len(data[0]))
-        else:  # 1D data
-            self.setRowCount(1)
-            self.setColumnCount(len(data))
-
-        for i, row in enumerate(data):
-            if isinstance(row, list):
-                for j, value in enumerate(row):
-                    self.setItem(i, j, QTableWidgetItem(str(value)))
-            else:
-                self.setItem(0, i, QTableWidgetItem(str(row)))
-
-        if row_labels:
-            self.setVerticalHeaderLabels(row_labels)
-        if column_labels:
-            self.setHorizontalHeaderLabels(column_labels)
-
-    def clear_data(self):
-        self.clear()
-        self.setRowCount(0)
-        self.setColumnCount(0)
+import cv2
+import csv
 
 
 class CameraViewerGUI(QMainWindow):
@@ -345,6 +312,12 @@ class CameraViewerGUI(QMainWindow):
         self.black_background_checkbox.setChecked(self.settings_handler.get_setting("Trailing", "black_background"))
         trailing_layout.addWidget(self.black_background_checkbox, 3, 0, 1, 2)
         
+        self.alpha_fade_checkbox = QCheckBox("Fade Trail Effect")
+        self.alpha_fade_checkbox.setChecked(self.settings_handler.get_setting("Trailing", "alpha_fade"))
+        trailing_layout.addWidget(self.alpha_fade_checkbox, 4, 0, 1, 2)
+        self.save_trailed_movie_button = QPushButton("Save Trailed Movie")
+        self.save_trailed_movie_button.clicked.connect(self.save_trailed_movie)
+        trailing_layout.addWidget(self.save_trailed_movie_button, 5, 0, 1, 2)
         trailing_group.setLayout(trailing_layout)
         
         # Add save settings button
@@ -391,7 +364,8 @@ class CameraViewerGUI(QMainWindow):
         self.settings_handler.set_setting("Trailing", "landmark_size", self.landmark_size_input.value())
         self.settings_handler.set_setting("Trailing", "alpha", self.alpha_input.value())
         self.settings_handler.set_setting("Trailing", "black_background", self.black_background_checkbox.isChecked())
-        
+        self.settings_handler.set_setting("Trailing", "alpha_fade", self.alpha_fade_checkbox.isChecked())
+
         self.settings_handler.save_settings()
         
         # Reconnect camera if it's currently connected
@@ -582,43 +556,85 @@ class CameraViewerGUI(QMainWindow):
         fps = 1.0 / (current_time - self.last_frame_time)
         self.last_frame_time = current_time
         return fps
-
-    def save_raw_movie(self):
-        if not self.frames:
-            QMessageBox.warning(self, "Save Error", "No frames available to save")
+    
+    def save_trailed_movie(self):
+        """Save a movie with trailed landmarks using current settings"""
+        recording_name = self.recording_combo.currentText()
+        if not recording_name:
+            self.log("No recording selected")
+            return
+        
+        # Create output directory
+        output_dir = "src/data/trailed_movie"
+        os.makedirs(output_dir, exist_ok=True)
+        
+        # Get current recording name and check for CSV data
+        timestamp = recording_name[10:-4]  # Remove "raw_movie_" prefix and ".mp4" suffix
+        csv_filename = f"csv_{timestamp}.csv"
+        csv_path = os.path.join("src/data/csv_data", csv_filename)
+        
+        if not os.path.exists(csv_path):
+            QMessageBox.warning(self, "Warning", "CSV data not found. Please analyze the recording first.")
             return
             
-        # Create output directory if it doesn't exist
-        os.makedirs("src/data/raw_movie", exist_ok=True)
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        output_path = f"src/data/raw_movie/raw_movie_{timestamp}.mp4"
+        output_path = os.path.join(output_dir, f"trailed_{recording_name}")
         
-        # Get current resolution settings
-        width, height = self.get_camera_resolution()
+        if os.path.exists(output_path):
+            reply = QMessageBox.question(self, "File exists", 
+                                    "A file with this name already exists. Do you want to replace it?",
+                                    QMessageBox.Yes | QMessageBox.No)
+            if reply == QMessageBox.No:
+                return
         
-        # Show progress dialog
-        progress = QProgressDialog("Saving video...", None, 0, 100, self)
-        progress.setWindowModality(Qt.WindowModal)
-        progress.setAutoClose(True)
-        progress.setValue(0)
-        
-        # Process frames and update progress
         try:
-            total_frames = len(self.frames)
-            progress.setMaximum(total_frames)
+            self.show_progress_bar(True)
+            self.set_progress(0)
             
-            success, message = save_raw_movie(self.frames, output_path, fps=30, 
-                                            width=width, height=height)
+            # Load the recording
+            recording_path = os.path.join("src/data/raw_movie", recording_name)
+            cap = cv2.VideoCapture(recording_path)
+            width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            fps = cap.get(cv2.CAP_PROP_FPS)
             
-            if success:
-                QMessageBox.information(self, "Success", message)
-                self.log_message(message)
-            else:
-                QMessageBox.warning(self, "Save Error", message)
-                self.log_message(f"Error saving video: {message}")
+            # Load CSV data
+            analyzed_data = []
+            with open(csv_path, mode='r') as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    analyzed_data.append(row)
+            
+            # Create video writer
+            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
+            
+            # Process each frame
+            total_frames = len(analyzed_data)
+            for frame_idx in range(total_frames):
+                # Read the original frame
+                cap.set(cv2.CAP_PROP_POS_FRAMES, frame_idx)
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                    
+                # Generate trailed frame using current settings
+                trailed_frame = self.visualization_manager.generate_trailed_frame(
+                    frame,
+                    analyzed_data,
+                    frame_idx
+                )
+                out.write(trailed_frame)
                 
+                # Update progress
+                progress = int((frame_idx + 1) / total_frames * 100)
+                self.set_progress(progress)
+            
+            cap.release()
+            out.release()
+            QMessageBox.information(self, "Success", "Trailed movie saved successfully!")
+            
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save video: {str(e)}")
-            self.log_message(f"Critical error saving video: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Failed to save trailed movie: {str(e)}")
         finally:
-            progress.close()
+            self.show_progress_bar(False)
+            self.set_progress(0)

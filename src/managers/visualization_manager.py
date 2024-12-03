@@ -13,6 +13,7 @@ class VisualizationManager:
         landmark_size = self.settings_handler.settings["Trailing"]["landmark_size"]
         alpha = self.settings_handler.settings["Trailing"]["alpha"]
         black_background = self.settings_handler.settings["Trailing"]["black_background"]
+        alpha_fade = self.settings_handler.settings["Trailing"]["alpha_fade"]
         
         # Create frame based on background setting
         if black_background:
@@ -29,7 +30,15 @@ class VisualizationManager:
             is_left_hand = hand == 'left'
             hand_colors = get_hand_colors(is_left_hand)
             
-            for trail_frame in trail_data:
+            for frame_idx, trail_frame in enumerate(trail_data):
+                # Calculate fade factor if alpha fade is enabled
+                if alpha_fade:
+                    fade_factor = (frame_idx + 1) / len(trail_data)  # Newer frames have higher alpha
+                else:
+                    fade_factor = 1.0
+                
+                frame_alpha = alpha * fade_factor
+                
                 for landmark_idx, landmark in enumerate(LANDMARK_DICT.values()):
                     try:
                         x = trail_frame.get(f"{hand}_{landmark}_x", None)
@@ -47,7 +56,7 @@ class VisualizationManager:
                                 if 0 <= pos_x < frame.shape[1] and 0 <= pos_y < frame.shape[0]:
                                     # Get finger color based on landmark index
                                     finger_idx = get_finger_idx(landmark_idx)
-                                    color = tuple(int(c * alpha) for c in hand_colors[finger_idx])
+                                    color = tuple(int(c * frame_alpha) for c in hand_colors[finger_idx])
                                     cv2.circle(frame, (pos_x, pos_y), landmark_size, color, -1)
                             except (ValueError, IndexError):
                                 continue
