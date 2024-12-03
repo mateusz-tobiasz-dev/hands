@@ -2,50 +2,50 @@ import os
 import csv
 from src.core.hand_analyzer import HandAnalyzer
 from src.utils.utils import save_to_csv
+import cv2
 
 class AnalysisManager:
     def __init__(self):
         self.hand_analyzer = HandAnalyzer()
-        self.analyzed_data = []
         
-    def analyze_frames(self, frames, progress_callback=None):
-        total_frames = len(frames)
-        self.analyzed_data = []
+    def analyze_video(self, video_path, progress_callback=None):
+        """Analyze video frame by frame and save directly to CSV"""
+        cap = cv2.VideoCapture(video_path)
+        total_frames = int(cap.get(cv2.CAP_PROP_FRAME_COUNT))
         
-        for frame_idx, frame in enumerate(frames):
-            frame_data = self.hand_analyzer.analyze_frame(frame, frame_idx)
-            self.analyzed_data.append(frame_data)
-            
-            if progress_callback:
-                progress = int((frame_idx + 1) / total_frames * 100)
-                progress_callback(progress)
-                
-        return self.analyzed_data
-    
-    def save_analysis(self, timestamp, logger=None):
-        if not self.analyzed_data:
-            if logger:
-                logger("No data to save")
-            return False
-            
+        # Create CSV file
         os.makedirs("src/data/csv_data", exist_ok=True)
-        filename = os.path.join("src/data/csv_data", f"csv_{timestamp}.csv")
+        timestamp = os.path.basename(video_path)[10:-4]
+        csv_path = os.path.join("src/data/csv_data", f"csv_{timestamp}.csv")
         
-        # Collect all unique keys from all data items
-        all_keys = set()
-        for item in self.analyzed_data:
-            all_keys.update(item.keys())
+        with open(csv_path, mode="w", newline="") as csvfile:
+            writer = None  # Will be initialized after first frame
             
-        fieldnames = ["frame"] + sorted(list(all_keys - {"frame"}))
-        
-        with open(filename, mode="w", newline="") as file:
-            writer = csv.DictWriter(file, fieldnames=fieldnames)
-            writer.writeheader()
-            for row in self.analyzed_data:
-                # Use a dictionary comprehension to ensure all fields are present
-                row_data = {field: row.get(field, None) for field in fieldnames}
-                writer.writerow(row_data)
+            for frame_idx in range(total_frames):
+                # Read and analyze single frame
+                ret, frame = cap.read()
+                if not ret:
+                    break
+                    
+                frame_data = self.hand_analyzer.analyze_frame(frame, frame_idx)
                 
-        if logger:
-            logger(f"Data saved to {filename}")
-        return True
+                # Initialize writer with fields from first frame
+                if writer is None and frame_data:
+                    fieldnames = ["frame"] + sorted([k for k in frame_data.keys() if k != "frame"])
+                    writer = csv.DictWriter(csvfile, fieldnames=fieldnames)
+                    writer.writeheader()
+                
+                # Write frame data immediately
+                if writer is not None:
+                    writer.writerow(frame_data)
+                
+                # Update progress
+                if progress_callback:
+                    progress = int((frame_idx + 1) / total_frames * 100)
+                    progress_callback(progress)
+                
+                # Clear frame from memory
+                frame = None
+        
+        cap.release()
+        return csv_path

@@ -23,6 +23,8 @@ import time
 class CameraViewerApp(CameraViewerGUI):
     def __init__(self):
         super().__init__()
+        self.playback_timer = QTimer()
+        self.playback_timer.timeout.connect(self.update_playback_frame)
         
         self.camera_manager = CameraManager()
         self.recording_manager = RecordingManager()
@@ -154,192 +156,261 @@ class CameraViewerApp(CameraViewerGUI):
         self.log("Recording saved successfully")
 
     def start_playing(self):
-        if self.playback_manager.frames and self.playback_manager.analyzed_data:
-            if self.playback_manager.start_playback(self.playback_timer):
-                self.start_play_button.setEnabled(False)
-                self.pause_play_button.setEnabled(True)
-                self.stop_play_button.setEnabled(True)
-                self.log("Started playback")
-        else:
+        """Start video playback"""
+        if not self.playback_manager.is_playback_ready():
             self.log("Cannot play: No recording loaded or analyzed")
+            return
+
+        if self.playback_manager.start_playback(self.playback_timer):
+            self.start_play_button.setEnabled(False)
+            self.pause_play_button.setEnabled(True)
+            self.stop_play_button.setEnabled(True)
+            self.log("Playback started")
+            # Force initial frame update
+            self.update_frame_display()
 
     def pause_playing(self):
+        """Pause/resume video playback"""
         if self.playback_manager.pause_playback(self.playback_timer):
-            if self.playback_manager.paused:
-                self.pause_play_button.setText("Resume")
-                self.log("Paused playback")
-            else:
-                self.pause_play_button.setText("Pause")
-                self.log("Resumed playback")
+            paused = self.playback_manager.paused
+            self.pause_play_button.setText("Resume" if paused else "Pause")
+            self.log("Playback paused" if paused else "Playback resumed")
 
     def stop_playing(self):
-        self.playback_manager.stop_playback(self.playback_timer)
-        self.set_current_frame(0)
-        self.update_analysis_display()
-        self.start_play_button.setEnabled(True)
-        self.pause_play_button.setEnabled(False)
-        self.stop_play_button.setEnabled(False)
-        self.pause_play_button.setText("Pause")
-        self.log("Playback stopped")
+        """Stop video playback"""
+        if self.playback_manager.stop_playback(self.playback_timer):
+            self.start_play_button.setEnabled(True)
+            self.pause_play_button.setEnabled(False)
+            self.stop_play_button.setEnabled(False)
+            self.pause_play_button.setText("Pause")
+            self.frame_slider.setValue(0)  # Reset slider position
+            self.update_frame_display()
+            self.log("Playback stopped")
 
     def analyze_selected_recording(self):
-        """Analyze the currently selected recording when Analyze button is clicked"""
         recording_name = self.recording_combo.currentText()
         if not recording_name:
             self.log("No recording selected")
             return
-
-        # Check if CSV file already exists
-        timestamp = recording_name[10:-4]  # Remove "raw_movie_" prefix and ".mp4" suffix
+            
+        # Check if CSV exists
+        timestamp = recording_name[10:-4]
         csv_filename = f"csv_{timestamp}.csv"
         csv_path = os.path.join("src/data/csv_data", csv_filename)
         
         if os.path.exists(csv_path):
-            # Try to load existing analysis first
-            try:
-                self.load_csv_data(recording_name)
-                if self.playback_manager.analyzed_data:
-                    # Ask user if they want to overwrite
-                    reply = QMessageBox.question(
-                        self,
-                        "Analysis Exists",
-                        "Analysis data already exists for this recording. Do you want to analyze again?",
-                        QMessageBox.Yes | QMessageBox.No,
-                        QMessageBox.No
-                    )
-                    
-                    if reply == QMessageBox.No:
-                        # Load the recording and display existing analysis
-                        self.log(f"Loading existing analysis for: {recording_name}")
-                        self.load_recording(recording_name)
-                        self.update_frame_slider_range()
-                        self.update_analysis_display()
-                        
-                        # Enable playback controls
-                        if self.playback_manager.frames and self.playback_manager.analyzed_data:
-                            self.start_play_button.setEnabled(True)
-                            self.pause_play_button.setEnabled(False)
-                            self.stop_play_button.setEnabled(False)
-                            self.pause_play_button.setText("Pause")
-                            self.log(f"Loaded existing analysis: {recording_name}")
-                        return
-            except Exception as e:
-                self.log(f"Error loading existing analysis: {str(e)}")
-                # Continue with new analysis if loading fails
+            reply = QMessageBox.question(
+                self, "Analysis Exists",
+                "Analysis data already exists. Analyze again?",
+                QMessageBox.Yes | QMessageBox.No, QMessageBox.No
+            )
+            if reply == QMessageBox.No:
+                self.load_recording(recording_name)
+                return
         
-        # Proceed with new analysis
-        self.log(f"Starting analysis of: {recording_name}")
         self.show_progress_bar(True)
         self.set_progress(0)
         
-        # Load the recording first
-        self.load_recording(recording_name)
-        
         try:
-            # Analyze the frames
-            if self.playback_manager.frames:
-                # Create a callback for progress updates
-                def progress_callback(value):
-                    self.set_progress(value)
-                    
-                self.analysis_manager.analyze_frames(self.playback_manager.frames, progress_callback)
-                
-                # Save analysis with timestamp from recording name
-                if self.analysis_manager.save_analysis(timestamp, self.log):
-                    # Load the analysis data
-                    self.load_csv_data(recording_name)
-                    self.update_frame_slider_range()
-                    self.update_analysis_display()
-                    
-                    # Enable playback controls if we have data
-                    if self.playback_manager.frames and self.playback_manager.analyzed_data:
-                        self.start_play_button.setEnabled(True)
-                        self.pause_play_button.setEnabled(False)
-                        self.stop_play_button.setEnabled(False)
-                        self.pause_play_button.setText("Pause")
-                        self.log(f"Analysis completed successfully: {recording_name}")
-                    else:
-                        self.log(f"Failed to load analysis data: {recording_name}")
-                else:
-                    self.log(f"Failed to save analysis: {recording_name}")
-            else:
-                self.log(f"Failed to load recording: {recording_name}")
-                
+            recording_path = os.path.join("src/data/raw_movie", recording_name)
+            
+            # Analyze video and save CSV directly
+            csv_path = self.analysis_manager.analyze_video(
+                recording_path,
+                progress_callback=self.set_progress
+            )
+            
+            self.log(f"Analysis completed: {csv_path}")
+            
+            # Load the video file for playback
+            self.load_recording(recording_name)
+            
         except Exception as e:
             self.log(f"Error during analysis: {str(e)}")
+            QMessageBox.critical(self, "Error", f"Analysis failed: {str(e)}")
         finally:
             self.show_progress_bar(False)
             self.set_progress(0)
 
     def load_recording(self, recording_name):
-        self.playback_manager.frames = []
-        cap = cv2.VideoCapture(os.path.join("src/data/raw_movie", recording_name))
+        """Load a recording for playback"""
+        if not recording_name:
+            return False
+            
+        recording_path = os.path.join("src/data/raw_movie", recording_name)
+        if not os.path.exists(recording_path):
+            self.log(f"Recording not found: {recording_path}")
+            return False
+        
+        self.log(f"Loading recording from: {recording_path}")
+        
+        # Load video file
+        if not self.playback_manager.load_recording(recording_path):
+            self.log(f"Failed to load recording: {recording_name}")
+            return False
+        
+        total_frames = self.playback_manager.get_total_frames()
+        self.log(f"Successfully loaded video with {total_frames} frames")
         
         # Get video metadata
+        cap = cv2.VideoCapture(recording_path)
         fps = cap.get(cv2.CAP_PROP_FPS)
         width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
         height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
-        
-        while True:
-            ret, frame = cap.read()
-            if not ret:
-                break
-            self.playback_manager.frames.append(frame)
         cap.release()
         
-        # Update resolution and FPS display
+        # Update display info
         self.original_resolution_label.setText(f"Original: {width}x{height} | FPS: {fps:.1f}")
         self.trailed_resolution_label.setText(f"Original: {width}x{height} | FPS: {fps:.1f}")
         self.heatmap_resolution_label.setText(f"Original: {width}x{height} | FPS: {fps:.1f}")
         
-        self.log(f"Loaded {recording_name} ({width}x{height} @ {fps:.1f} FPS)")
+        # Load CSV data
+        if not self.load_csv_data(recording_name):
+            self.log("Failed to load analyzed data")
+            return False
+        
+        self.log(f"Loaded {len(self.playback_manager.analyzed_data)} frames of analyzed data")
+        
+        # Update UI
+        self.update_frame_slider_range()
+        self.update_frame_display()
+        
+        # Enable playback controls if everything is ready
+        if self.playback_manager.is_playback_ready():
+            self.start_play_button.setEnabled(True)
+            self.pause_play_button.setEnabled(False)
+            self.stop_play_button.setEnabled(False)
+            self.log(f"Loaded {recording_name} - Ready for playback")
+        else:
+            self.log(f"Loaded {recording_name} but playback not ready")
+        
+        return True
+
+    def update_frame_display(self):
+        """Update the frame display"""
+        if not self.playback_manager.is_playback_ready():
+            self.log("No recording loaded or analyzed")
+            return
+                
+        self.log(f"Attempting to display frame {self.playback_manager.current_frame_index}")
+        frame = self.playback_manager.get_frame(self.playback_manager.current_frame_index)
+        if frame is not None:
+            # Convert frame to RGB for display
+            frame_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+            
+            # Show original frame in Original tab
+            height, width, channel = frame_rgb.shape
+            bytes_per_line = 3 * width
+            original_q_img = QImage(frame_rgb.data, width, height, bytes_per_line, QImage.Format_RGB888)
+            self.analyzed_label.setPixmap(QPixmap.fromImage(original_q_img))
+            
+            # Draw landmarks for trailed view
+            if hasattr(self, 'visualization_manager'):
+                # Make sure trailing settings are properly set
+                if "Trailing" not in self.settings_handler.settings:
+                    self.settings_handler.settings["Trailing"] = {
+                        "trail_length": 10,
+                        "landmark_size": 3,
+                        "alpha": 0.5,
+                        "black_background": False,
+                        "alpha_fade": True
+                    }
+                
+                trailed_frame = self.visualization_manager.generate_trailed_frame(
+                    frame_rgb.copy(),  # Use a copy to keep original frame intact
+                    self.playback_manager.analyzed_data,
+                    self.playback_manager.current_frame_index
+                )
+                
+                # Convert trailed frame to QImage
+                trailed_q_img = QImage(trailed_frame.data, width, height, bytes_per_line, QImage.Format_RGB888)
+                self.trailed_label.setPixmap(QPixmap.fromImage(trailed_q_img))
+            
+            # Update frame number label
+            self.frame_number_label.setText(f"Frame: {self.playback_manager.current_frame_index}")
+            self.log(f"Successfully displayed frame {self.playback_manager.current_frame_index}")
+            
+            # Switch to recorded images tab
+            self.tab_widget.setCurrentIndex(1)  # Switch to recorded images tab
+        else:
+            self.log(f"Failed to read frame {self.playback_manager.current_frame_index}")
 
     def load_csv_data(self, recording_name):
+        """Load analyzed data from CSV file"""
         # Remove "raw_movie_" prefix and ".mp4" suffix
         timestamp = recording_name[10:-4]
         csv_filename = f"csv_{timestamp}.csv"
         csv_path = os.path.join("src/data/csv_data", csv_filename)
-        self.playback_manager.analyzed_data = []
+        
+        if not os.path.exists(csv_path):
+            self.log(f"No analyzed data found for {recording_name}")
+            self.playback_manager.analyzed_data = []
+            return False
+            
         try:
-            with open(csv_path, "r") as csv_file:
-                csv_reader = csv.DictReader(csv_file)
-                for row in csv_reader:
-                    self.playback_manager.analyzed_data.append(row)
-            self.log(f"Loaded CSV data from {csv_path}")
-        except FileNotFoundError:
-            self.log(f"CSV file not found: {csv_path}")
-            self.clear_analysis_data()
+            # Initialize empty list for analyzed data
+            analyzed_data = []
+            
+            # Read CSV file
+            with open(csv_path, mode='r') as file:
+                reader = csv.DictReader(file)
+                for row in reader:
+                    # Convert string values to float where needed
+                    converted_row = {}
+                    for key, value in row.items():
+                        try:
+                            if key != 'frame':  # Keep frame as string/int
+                                converted_row[key] = float(value) if value else None
+                            else:
+                                converted_row[key] = int(value)
+                        except (ValueError, TypeError):
+                            converted_row[key] = value
+                    analyzed_data.append(converted_row)
+            
+            # Store the data in playback manager
+            self.playback_manager.analyzed_data = analyzed_data
+            self.log(f"Loaded {len(analyzed_data)} frames of analyzed data")
+            
+            # Enable playback controls
+            self.start_play_button.setEnabled(True)
+            self.pause_play_button.setEnabled(False)
+            self.stop_play_button.setEnabled(False)
+            
+            return True
+            
         except Exception as e:
-            self.log(f"Error loading CSV data: {str(e)}")
-            self.clear_analysis_data()
+            self.log(f"Error loading analyzed data: {str(e)}")
+            self.playback_manager.analyzed_data = []
+            return False
 
     def update_frame_slider_range(self):
-        if self.playback_manager.frames and self.playback_manager.analyzed_data:
-            max_frames = min(len(self.playback_manager.frames), len(self.playback_manager.analyzed_data))
-            self.set_frame_slider_range(0, max_frames - 1)
-        else:
-            self.set_frame_slider_range(0, 0)
-            self.log("No frames or analyzed data available")
+        """Update the frame slider range based on the loaded recording"""
+        total_frames = self.playback_manager.get_total_frames()
+        if total_frames > 0:
+            self.frame_slider.setRange(0, total_frames - 1)
+            self.min_frame_spin.setRange(0, total_frames - 1)
+            self.max_frame_spin.setRange(0, total_frames - 1)
+            self.frame_slider.setLow(0)
+            self.frame_slider.setHigh(total_frames - 1)
+            self.min_frame_spin.setValue(0)
+            self.max_frame_spin.setValue(total_frames - 1)
+            self.frame_number_label.setText(f"Frames: 0-{total_frames - 1}")
 
     def update_playback_frame(self):
-        if (self.playback_manager.frames and 
-            self.playback_manager.analyzed_data and 
-            self.playback_manager.playing and 
-            not self.playback_manager.paused):
-            
-            max_frames = min(len(self.playback_manager.frames), 
-                           len(self.playback_manager.analyzed_data))
-            
-            if self.playback_manager.current_frame_index < max_frames - 1:
-                self.playback_manager.current_frame_index += 1
-                self.set_current_frame(self.playback_manager.current_frame_index)
-                self.update_analysis_display()
-            else:
-                self.stop_playing()
+        """Update frame during playback"""
+        if self.playback_manager.playing and not self.playback_manager.paused:
+            next_frame = self.playback_manager.current_frame_index + 1
+            if next_frame >= self.playback_manager.get_total_frames():
+                next_frame = 0
+            self.playback_manager.current_frame_index = next_frame
+            self.update_frame_display()
+            self.frame_slider.setValue(next_frame)  # Update slider position
 
     def update_frame_from_slider(self):
-        self.playback_manager.current_frame_index = self.get_current_frame()
-        self.update_analysis_display()
+        """Update frame when slider moves"""
+        frame_index = self.frame_slider.value()
+        self.playback_manager.current_frame_index = frame_index
+        self.update_frame_display()
 
     def update_analysis_display(self):
         if self.playback_manager.frames and self.playback_manager.analyzed_data:
