@@ -255,10 +255,10 @@ class CameraViewerGUI(QMainWindow):
         analysis_group = QGroupBox("Analysis Control")
         analysis_layout = QVBoxLayout()
         
-        self.start_analyze_button = QPushButton("Start Analyzing")
+        self.start_analyze_button = QPushButton("Start Recording")
         analysis_layout.addWidget(self.start_analyze_button)
         
-        self.stop_analyze_button = QPushButton("Stop Analyzing")
+        self.stop_analyze_button = QPushButton("Stop Recording")
         self.stop_analyze_button.setEnabled(False)
         analysis_layout.addWidget(self.stop_analyze_button)
         

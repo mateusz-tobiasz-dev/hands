@@ -2,7 +2,7 @@ import sys
 import cv2
 import os
 import csv
-from PyQt5.QtWidgets import QApplication
+from PyQt5.QtWidgets import QApplication, QMessageBox
 from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QImage, QPixmap
 from src.gui.camera_viewer_gui import CameraViewerGUI
@@ -110,33 +110,24 @@ class CameraViewerApp(CameraViewerGUI):
 
     def start_analyzing(self):
         if not self.camera_manager.camera:
-            self.log("Cannot start analysis: Camera is not connected")
+            self.log("Cannot start recording: Camera is not connected")
             return
 
         self.recording_manager.start_recording()
         self.start_analyze_button.setEnabled(False)
         self.stop_analyze_button.setEnabled(True)
-        self.show_progress_bar(True)
-        self.set_progress(0)
-        self.log("Started analyzing")
+        self.log("Started recording")
 
     def stop_analyzing(self):
         self.recording_manager.stop_recording()
         self.start_analyze_button.setEnabled(True)
         self.stop_analyze_button.setEnabled(False)
-        self.log("Stopped analyzing")
+        self.log("Stopped recording")
         
-        # Analyze the recorded frames
-        frames = self.recording_manager.frames
-        self.analysis_manager.analyze_frames(frames, self.set_progress)
-        
-        # Save recording and analysis with the same timestamp
+        # Save recording with timestamp
         self.recording_manager.save_recording()
-        timestamp = self.recording_manager.get_current_timestamp()
-        self.analysis_manager.save_analysis(timestamp, self.log)
-        
-        self.show_progress_bar(False)
         self.populate_recording_list()
+        self.log("Recording saved successfully")
 
     def start_playing(self):
         if self.playback_manager.frames and self.playback_manager.analyzed_data:
@@ -170,24 +161,82 @@ class CameraViewerApp(CameraViewerGUI):
     def analyze_selected_recording(self):
         """Analyze the currently selected recording when Analyze button is clicked"""
         recording_name = self.recording_combo.currentText()
-        if recording_name:
-            self.log(f"Starting analysis of: {recording_name}")
-            self.load_recording(recording_name)
-            self.load_csv_data(recording_name)
-            self.update_frame_slider_range()
-            self.update_analysis_display()
-            
-            # Enable playback controls if we have data
-            if self.playback_manager.frames and self.playback_manager.analyzed_data:
-                self.start_play_button.setEnabled(True)
-                self.pause_play_button.setEnabled(False)
-                self.stop_play_button.setEnabled(False)
-                self.pause_play_button.setText("Pause")
-                self.log(f"Finished analyzing: {recording_name}")
-            else:
-                self.log(f"Failed to analyze: {recording_name}")
-        else:
+        if not recording_name:
             self.log("No recording selected")
+            return
+
+        # Check if CSV file already exists
+        timestamp = recording_name[10:-4]  # Remove "raw_movie_" prefix and ".mp4" suffix
+        csv_filename = f"csv_{timestamp}.csv"
+        csv_path = os.path.join("src/data/csv_data", csv_filename)
+        
+        if os.path.exists(csv_path):
+            # Try to load existing analysis first
+            try:
+                self.load_csv_data(recording_name)
+                if self.playback_manager.analyzed_data:
+                    # Ask user if they want to overwrite
+                    reply = QMessageBox.question(
+                        self,
+                        "Analysis Exists",
+                        "Analysis data already exists for this recording. Do you want to analyze again?",
+                        QMessageBox.Yes | QMessageBox.No,
+                        QMessageBox.No
+                    )
+                    
+                    if reply == QMessageBox.No:
+                        # Load the recording and display existing analysis
+                        self.log(f"Loading existing analysis for: {recording_name}")
+                        self.load_recording(recording_name)
+                        self.update_frame_slider_range()
+                        self.update_analysis_display()
+                        
+                        # Enable playback controls
+                        if self.playback_manager.frames and self.playback_manager.analyzed_data:
+                            self.start_play_button.setEnabled(True)
+                            self.pause_play_button.setEnabled(False)
+                            self.stop_play_button.setEnabled(False)
+                            self.pause_play_button.setText("Pause")
+                            self.log(f"Loaded existing analysis: {recording_name}")
+                        return
+            except Exception as e:
+                self.log(f"Error loading existing analysis: {str(e)}")
+                # Continue with new analysis if loading fails
+        
+        # Proceed with new analysis
+        self.log(f"Starting analysis of: {recording_name}")
+        self.show_progress_bar(True)
+        self.set_progress(0)
+        
+        # Load the recording first
+        self.load_recording(recording_name)
+        
+        # Analyze the frames
+        if self.playback_manager.frames:
+            self.analysis_manager.analyze_frames(self.playback_manager.frames, self.set_progress)
+            
+            # Save analysis with timestamp from recording name
+            if self.analysis_manager.save_analysis(timestamp, self.log):
+                # Load the analysis data
+                self.load_csv_data(recording_name)
+                self.update_frame_slider_range()
+                self.update_analysis_display()
+                
+                # Enable playback controls if we have data
+                if self.playback_manager.frames and self.playback_manager.analyzed_data:
+                    self.start_play_button.setEnabled(True)
+                    self.pause_play_button.setEnabled(False)
+                    self.stop_play_button.setEnabled(False)
+                    self.pause_play_button.setText("Pause")
+                    self.log(f"Analysis completed successfully: {recording_name}")
+                else:
+                    self.log(f"Failed to load analysis data: {recording_name}")
+            else:
+                self.log(f"Failed to save analysis: {recording_name}")
+        else:
+            self.log(f"Failed to load recording: {recording_name}")
+        
+        self.show_progress_bar(False)
 
     def load_recording(self, recording_name):
         self.playback_manager.frames = []
