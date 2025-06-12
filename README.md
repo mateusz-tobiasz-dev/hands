@@ -18,7 +18,7 @@ A powerful application for analyzing and visualizing hand movements in video rec
 <tr>
 <td width="60%">
 <img src="docs/demos/trailing/demo.gif" alt="Trailing Effect Demo">
-<br><em>Trailing effect visualization (GIF preview)</em>
+<br><em>Trailing effect visualization</em>
 </td>
 <td width="40%">
 
@@ -27,8 +27,6 @@ A powerful application for analyzing and visualizing hand movements in video rec
 - Customizable trail length
 - Adjustable opacity
 - Color-coded fingers
-
-[▶ Watch Full Demo (MP4)](docs/demos/trailing/demo.mp4)
 </td>
 </tr>
 </table>
@@ -38,7 +36,7 @@ A powerful application for analyzing and visualizing hand movements in video rec
 <tr>
 <td width="60%">
 <img src="docs/demos/heatmap/demo.gif" alt="Heatmap Demo">
-<br><em>Heatmap visualization (GIF preview)</em>
+<br><em>Heatmap visualization</em>
 </td>
 <td width="40%">
 
@@ -47,28 +45,6 @@ A powerful application for analyzing and visualizing hand movements in video rec
 - Multiple color schemes
 - Adjustable radius
 - Blur control
-
-[▶ Watch Full Demo (MP4)](docs/demos/heatmap/demo.mp4)
-</td>
-</tr>
-</table>
-
-#### Real-time Analysis
-<table>
-<tr>
-<td width="60%">
-<img src="docs/demos/realtime/demo.gif" alt="Real-time Analysis Demo">
-<br><em>Real-time hand tracking (GIF preview)</em>
-</td>
-<td width="40%">
-
-**Key Features:**
-- Live hand detection
-- Multiple hand tracking
-- Instant visualization
-- Performance metrics
-
-[▶ Watch Full Demo (MP4)](docs/demos/realtime/demo.mp4)
 </td>
 </tr>
 </table>
@@ -151,13 +127,8 @@ hands/
     │   └── real_time_demo_v2.png
     └── demos/         # Feature demonstration videos
         ├── trailing/  # Trailing effect demos
-        │   ├── demo.mp4
         │   └── demo.gif
-        ├── heatmap/   # Heatmap visualization demos
-        │   ├── demo.mp4
-        │   └── demo.gif
-        └── realtime/  # Real-time analysis demos
-            ├── demo.mp4
+        └── heatmap/   # Heatmap visualization demos
             └── demo.gif
 ```
 
