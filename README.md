@@ -132,8 +132,6 @@ hands/
             └── demo.gif
 ```
 
-See [Technical Documentation](TECHNICAL.md) for detailed structure.
-
 ## Requirements
 
 - Python 3.8+
