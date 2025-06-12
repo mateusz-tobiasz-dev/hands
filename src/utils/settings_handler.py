@@ -7,6 +7,7 @@ DEFAULT_SETTINGS = {
         "trail_length": 10,
         "landmark_size": 2,
         "alpha": 0.6,
+        "opacity": 0.6,
         "black_background": False,
         "alpha_fade": True,
     },
@@ -31,76 +32,26 @@ class SettingsHandler:
         self.settings_file = "settings.json"
         self.settings = self.load_settings()
         if self.settings is None:
+            # Only use defaults if no settings file exists
             self.settings = DEFAULT_SETTINGS.copy()
             self.save_settings()
-        self.validate_settings()
+        else:
+            # Validate and only add missing settings
+            self.validate_settings()
 
     def validate_settings(self):
-        # Ensure all required settings groups exist
+        """Ensure all required settings exist, only add missing ones"""
+        # Add any missing top-level groups
         for group in DEFAULT_SETTINGS:
             if group not in self.settings:
                 self.settings[group] = DEFAULT_SETTINGS[group].copy()
             else:
-                # Ensure all keys in each group exist
+                # Only add missing keys in existing groups
                 for key in DEFAULT_SETTINGS[group]:
                     if key not in self.settings[group]:
                         self.settings[group][key] = DEFAULT_SETTINGS[group][key]
 
-        # Validate resolution values
-        camera_width = self.settings["Resolution"]["camera_width"]
-        camera_height = self.settings["Resolution"]["camera_height"]
-
-        if not self.is_valid_resolution(camera_width, camera_height):
-            self.settings["Resolution"]["camera_width"] = DEFAULT_SETTINGS[
-                "Resolution"
-            ]["camera_width"]
-            self.settings["Resolution"]["camera_height"] = DEFAULT_SETTINGS[
-                "Resolution"
-            ]["camera_height"]
-
-        # Validate trailing values
-        trail_length = self.settings["Trailing"]["trail_length"]
-        landmark_size = self.settings["Trailing"]["landmark_size"]
-        alpha = self.settings["Trailing"]["alpha"]
-        black_background = self.settings["Trailing"]["black_background"]
-        alpha_fade = self.settings["Trailing"]["alpha_fade"]
-
-        if not self.is_valid_trailing(
-            trail_length, landmark_size, alpha, black_background, alpha_fade
-        ):
-            print("Invalid trailing settings, resetting to defaults")
-            self.settings["Trailing"] = DEFAULT_SETTINGS["Trailing"].copy()
-
-        # Validate heatmap values
-        radius = self.settings["Heatmap"]["radius"]
-        opacity = self.settings["Heatmap"]["opacity"]
-        color_map = self.settings["Heatmap"]["color_map"]
-        blur_amount = self.settings["Heatmap"]["blur_amount"]
-        black_background = self.settings["Heatmap"]["black_background"]
-        accumulate = self.settings["Heatmap"]["accumulate"]
-
-        if not self.is_valid_heatmap(
-            radius, opacity, color_map, blur_amount, black_background, accumulate
-        ):
-            print("Invalid heatmap settings, resetting to defaults")
-            self.settings["Heatmap"] = DEFAULT_SETTINGS["Heatmap"].copy()
-
-        # Validate view settings
-        if "ViewSettings" not in self.settings:
-            self.settings["ViewSettings"] = DEFAULT_SETTINGS["ViewSettings"].copy()
-        else:
-            for key in DEFAULT_SETTINGS["ViewSettings"]:
-                if key not in self.settings["ViewSettings"]:
-                    self.settings["ViewSettings"][key] = DEFAULT_SETTINGS[
-                        "ViewSettings"
-                    ][key]
-                elif not isinstance(self.settings["ViewSettings"][key], bool):
-                    print(f"Invalid ViewSettings value for {key}, resetting to default")
-                    self.settings["ViewSettings"][key] = DEFAULT_SETTINGS[
-                        "ViewSettings"
-                    ][key]
-
-        # Save validated settings
+        # Save if any changes were made
         self.save_settings()
 
     def is_valid_resolution(self, width, height):
@@ -119,7 +70,7 @@ class SettingsHandler:
         )
 
     def is_valid_trailing(
-        self, trail_length, landmark_size, alpha, black_background, alpha_fade
+        self, trail_length, landmark_size, alpha, opacity, black_background, alpha_fade
     ):
         """Validate trailing settings"""
         try:
@@ -132,6 +83,9 @@ class SettingsHandler:
                 return False
             if not isinstance(alpha, (int, float)):
                 print("Alpha must be a number")
+                return False
+            if not isinstance(opacity, (int, float)):
+                print("Opacity must be a number")
                 return False
             if not isinstance(black_background, bool):
                 print("Black background must be a boolean")
@@ -215,33 +169,32 @@ class SettingsHandler:
             return False
 
     def load_settings(self):
+        """Load settings from file"""
         try:
             if os.path.exists(self.settings_file):
                 with open(self.settings_file, "r") as f:
                     return json.load(f)
-            return DEFAULT_SETTINGS.copy()
         except Exception as e:
             print(f"Error loading settings: {e}")
-            return DEFAULT_SETTINGS.copy()
+        return None
 
     def save_settings(self):
+        """Save current settings to file"""
         try:
             with open(self.settings_file, "w") as f:
                 json.dump(self.settings, f, indent=4)
-            return True
         except Exception as e:
             print(f"Error saving settings: {e}")
-            return False
 
-    def get_setting(self, group, key, default=None):
+    def get_setting(self, group, key):
+        """Get a setting value, return None if not found"""
         try:
             return self.settings[group][key]
-        except (KeyError, TypeError):
-            if default is not None:
-                return default
-            return DEFAULT_SETTINGS[group][key]
+        except KeyError:
+            return None
 
     def set_setting(self, group, key, value):
+        """Set a setting value"""
         if group not in self.settings:
             self.settings[group] = {}
         self.settings[group][key] = value

@@ -5,24 +5,25 @@
     },
     "Trailing": {
         "trail_length": 50,
-        "landmark_size": 5,
-        "alpha": 0.9999999999999999,
+        "landmark_size": 6,
+        "alpha": 0.7999999999999999,
+        "opacity": 0.30000000000000016,
         "black_background": 2,
-        "alpha_fade": true
+        "alpha_fade": 2
     },
     "Heatmap": {
         "intensity": 1.5,
         "blur_size": 5,
         "threshold": 0.15,
-        "radius": 1,
+        "radius": 5,
         "opacity": 0.9999999999999999,
-        "color_map": "jet",
+        "color_map": "rainbow",
         "blur_amount": 20,
         "black_background": true,
         "accumulate": false
     },
     "ViewSettings": {
-        "original_realtime": true,
+        "original_realtime": false,
         "trailed_realtime": true,
         "heatmap_realtime": true
     }

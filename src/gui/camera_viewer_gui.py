@@ -26,6 +26,7 @@ import time
 import cv2
 import csv
 from src.utils.slider import RangeSlider
+from PyQt5.QtGui import QPixmap, QPainter
 
 
 class CameraViewerGUI(QMainWindow):
@@ -451,6 +452,19 @@ class CameraViewerGUI(QMainWindow):
         self.alpha_input.valueChanged.connect(self.on_alpha_changed)
         trailing_layout.addWidget(self.alpha_input, 2, 1)
 
+        # Opacity value
+        trailing_layout.addWidget(QLabel("Opacity:"), 3, 0)
+        self.trailing_opacity_input = QDoubleSpinBox()
+        self.trailing_opacity_input.setRange(0.1, 1.0)
+        self.trailing_opacity_input.setSingleStep(0.1)
+        self.trailing_opacity_input.setValue(
+            self.settings_handler.get_setting("Trailing", "opacity")
+        )
+        self.trailing_opacity_input.valueChanged.connect(
+            self.on_trailing_opacity_changed
+        )
+        trailing_layout.addWidget(self.trailing_opacity_input, 3, 1)
+
         # Black background checkbox
         self.black_background_checkbox = QCheckBox("Black Background")
         self.black_background_checkbox.setChecked(
@@ -459,7 +473,7 @@ class CameraViewerGUI(QMainWindow):
         self.black_background_checkbox.stateChanged.connect(
             self.on_black_background_changed
         )
-        trailing_layout.addWidget(self.black_background_checkbox, 3, 0, 1, 2)
+        trailing_layout.addWidget(self.black_background_checkbox, 4, 0, 1, 2)
 
         # Alpha fade checkbox
         self.alpha_fade_checkbox = QCheckBox("Alpha Fade")
@@ -467,7 +481,7 @@ class CameraViewerGUI(QMainWindow):
             self.settings_handler.get_setting("Trailing", "alpha_fade")
         )
         self.alpha_fade_checkbox.stateChanged.connect(self.on_alpha_fade_changed)
-        trailing_layout.addWidget(self.alpha_fade_checkbox, 4, 0, 1, 2)
+        trailing_layout.addWidget(self.alpha_fade_checkbox, 5, 0, 1, 2)
 
         trailing_group.setLayout(trailing_layout)
         display_layout.addWidget(trailing_group)
@@ -503,14 +517,12 @@ class CameraViewerGUI(QMainWindow):
         color_maps = [
             "jet",
             "hot",
-            "cool",
-            "spring",
-            "summer",
-            "autumn",
-            "winter",
-            "bone",
-            "copper",
-            "gray",
+            "rainbow",
+            "ocean",
+            "viridis",
+            "plasma",
+            "magma",
+            "inferno",
         ]
         self.heatmap_colormap_combo.addItems(color_maps)
         current_colormap = self.settings_handler.get_setting("Heatmap", "color_map")
@@ -740,9 +752,27 @@ class CameraViewerGUI(QMainWindow):
             # Calculate scaling to maintain aspect ratio
             label_size = self.analyzed_label.size()
             scaled_pixmap = pixmap.scaled(
-                label_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                label_size.width(),
+                label_size.height(),
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation,
             )
-            self.analyzed_label.setPixmap(scaled_pixmap)
+
+            # Center the pixmap in the label
+            x = (label_size.width() - scaled_pixmap.width()) // 2
+            y = (label_size.height() - scaled_pixmap.height()) // 2
+
+            # Create a new pixmap with the label's size and fill with black
+            final_pixmap = QPixmap(label_size)
+            final_pixmap.fill(Qt.black)
+
+            # Draw the scaled image in the center
+            painter = QPainter(final_pixmap)
+            painter.drawPixmap(x, y, scaled_pixmap)
+            painter.end()
+
+            self.analyzed_label.setPixmap(final_pixmap)
+
             if original_size:
                 current_text = self.original_resolution_label.text()
                 fps_text = (
@@ -759,11 +789,30 @@ class CameraViewerGUI(QMainWindow):
 
     def update_trailed_frame(self, pixmap, original_size=None):
         if pixmap:
+            # Calculate scaling to maintain aspect ratio
             label_size = self.trailed_label.size()
             scaled_pixmap = pixmap.scaled(
-                label_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                label_size.width(),
+                label_size.height(),
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation,
             )
-            self.trailed_label.setPixmap(scaled_pixmap)
+
+            # Center the pixmap in the label
+            x = (label_size.width() - scaled_pixmap.width()) // 2
+            y = (label_size.height() - scaled_pixmap.height()) // 2
+
+            # Create a new pixmap with the label's size and fill with black
+            final_pixmap = QPixmap(label_size)
+            final_pixmap.fill(Qt.black)
+
+            # Draw the scaled image in the center
+            painter = QPainter(final_pixmap)
+            painter.drawPixmap(x, y, scaled_pixmap)
+            painter.end()
+
+            self.trailed_label.setPixmap(final_pixmap)
+
             if original_size:
                 current_text = self.trailed_resolution_label.text()
                 fps_text = (
@@ -780,11 +829,30 @@ class CameraViewerGUI(QMainWindow):
 
     def update_heatmap_frame(self, pixmap, original_size=None):
         if pixmap:
+            # Calculate scaling to maintain aspect ratio
             label_size = self.heatmap_label.size()
             scaled_pixmap = pixmap.scaled(
-                label_size, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                label_size.width(),
+                label_size.height(),
+                Qt.KeepAspectRatio,
+                Qt.SmoothTransformation,
             )
-            self.heatmap_label.setPixmap(scaled_pixmap)
+
+            # Center the pixmap in the label
+            x = (label_size.width() - scaled_pixmap.width()) // 2
+            y = (label_size.height() - scaled_pixmap.height()) // 2
+
+            # Create a new pixmap with the label's size and fill with black
+            final_pixmap = QPixmap(label_size)
+            final_pixmap.fill(Qt.black)
+
+            # Draw the scaled image in the center
+            painter = QPainter(final_pixmap)
+            painter.drawPixmap(x, y, scaled_pixmap)
+            painter.end()
+
+            self.heatmap_label.setPixmap(final_pixmap)
+
             if original_size:
                 current_text = self.heatmap_resolution_label.text()
                 fps_text = (
@@ -1210,4 +1278,9 @@ class CameraViewerGUI(QMainWindow):
     def on_heatmap_accumulate_changed(self, state):
         """Handle changes to heatmap accumulate checkbox"""
         self.settings_handler.set_setting("Heatmap", "accumulate", bool(state))
+        self.settings_handler.save_settings()
+
+    def on_trailing_opacity_changed(self, value):
+        """Handle changes to trailing opacity"""
+        self.settings_handler.set_setting("Trailing", "opacity", value)
         self.settings_handler.save_settings()

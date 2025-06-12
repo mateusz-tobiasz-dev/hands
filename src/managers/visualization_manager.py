@@ -13,6 +13,7 @@ class VisualizationManager:
         trail_length = self.settings_handler.settings["Trailing"]["trail_length"]
         landmark_size = self.settings_handler.settings["Trailing"]["landmark_size"]
         alpha = self.settings_handler.settings["Trailing"]["alpha"]
+        opacity = self.settings_handler.settings["Trailing"]["opacity"]
         black_background = self.settings_handler.settings["Trailing"][
             "black_background"
         ]
@@ -23,6 +24,9 @@ class VisualizationManager:
             frame = np.zeros_like(current_frame)
         else:
             frame = current_frame.copy()
+
+        # Create an overlay for the trails
+        overlay = np.zeros_like(frame)
 
         # Get previous frames' data
         start_idx = max(0, current_frame_index - trail_length)
@@ -36,9 +40,8 @@ class VisualizationManager:
             for frame_idx, trail_frame in enumerate(trail_data):
                 # Calculate fade factor if alpha fade is enabled
                 if alpha_fade:
-                    fade_factor = (frame_idx + 1) / len(
-                        trail_data
-                    )  # Newer frames have higher alpha
+                    # Older frames should be more transparent
+                    fade_factor = (frame_idx + 1) / len(trail_data)
                 else:
                     fade_factor = 1.0
 
@@ -49,7 +52,6 @@ class VisualizationManager:
                         x = trail_frame.get(f"{hand}_{landmark}_x", None)
                         y = trail_frame.get(f"{hand}_{landmark}_y", None)
                         if x is not None and y is not None:
-                            # Convert coordinates to float and handle potential string format issues
                             try:
                                 x_float = float(
                                     str(x).split(".")[0] + "." + str(x).split(".")[1]
@@ -57,23 +59,26 @@ class VisualizationManager:
                                 y_float = float(
                                     str(y).split(".")[0] + "." + str(y).split(".")[1]
                                 )
-
                                 pos_x = int(x_float * frame.shape[1])
                                 pos_y = int(y_float * frame.shape[0])
 
-                                # Ensure coordinates are within frame bounds
                                 if (
                                     0 <= pos_x < frame.shape[1]
                                     and 0 <= pos_y < frame.shape[0]
                                 ):
                                     # Get finger color based on landmark index
                                     finger_idx = get_finger_idx(landmark_idx)
+                                    # Apply fade factor to the color intensity
                                     color = tuple(
                                         int(c * frame_alpha)
                                         for c in hand_colors[finger_idx]
                                     )
                                     cv2.circle(
-                                        frame, (pos_x, pos_y), landmark_size, color, -1
+                                        overlay,
+                                        (pos_x, pos_y),
+                                        landmark_size,
+                                        color,
+                                        -1,
                                     )
                             except (ValueError, IndexError):
                                 continue
@@ -83,7 +88,9 @@ class VisualizationManager:
                         )
                         continue
 
-        return frame
+        # Blend with the frame using opacity
+        result = cv2.addWeighted(frame, opacity, overlay, 1.0, 0)
+        return result
 
     def generate_heatmap_frame(
         self,
@@ -93,16 +100,26 @@ class VisualizationManager:
         start_frame=None,
         end_frame=None,
     ):
-        frame = current_frame.copy()
-        heatmap = np.zeros(frame.shape[:2], dtype=np.float32)
+        # Get heatmap settings
+        radius = self.settings_handler.settings["Heatmap"]["radius"]
+        opacity = self.settings_handler.settings["Heatmap"]["opacity"]
+        color_map = self.settings_handler.settings["Heatmap"]["color_map"]
+        blur_amount = self.settings_handler.settings["Heatmap"]["blur_amount"]
+        black_background = self.settings_handler.settings["Heatmap"]["black_background"]
+        accumulate = self.settings_handler.settings["Heatmap"]["accumulate"]
 
-        # Get settings
-        alpha = self.settings_handler.settings["Trailing"]["alpha"]
-        landmark_size = self.settings_handler.settings["Trailing"]["landmark_size"]
+        # Create frame based on background setting
+        if black_background:
+            frame = np.zeros_like(current_frame)
+        else:
+            frame = current_frame.copy()
+
+        # Create heatmap overlay
+        heatmap = np.zeros(frame.shape[:2], dtype=np.float32)
 
         # Determine frame range
         if start_frame is None:
-            start_frame = 0
+            start_frame = 0 if accumulate else current_frame_index
         if end_frame is None:
             end_frame = current_frame_index
 
@@ -131,14 +148,15 @@ class VisualizationManager:
                         except (ValueError, IndexError):
                             continue
 
-        # Draw all circles with optimized parameters for real-time display
-        kernel_size = landmark_size * 2  # Smaller kernel for better performance
+        # Draw all circles with the specified radius
         for pos_x, pos_y in coordinates:
-            cv2.circle(heatmap, (pos_x, pos_y), kernel_size, 1, -1)
+            cv2.circle(heatmap, (pos_x, pos_y), radius, 1, -1)
 
-        # Apply optimized Gaussian blur
-        blur_size = min(kernel_size * 2 + 1, 15)  # Cap blur size for performance
-        heatmap = cv2.GaussianBlur(heatmap, (blur_size, blur_size), blur_size / 4)
+        # Apply Gaussian blur with specified amount
+        if blur_amount > 0:
+            heatmap = cv2.GaussianBlur(
+                heatmap, (blur_amount * 2 + 1, blur_amount * 2 + 1), 0
+            )
 
         # Normalize and apply colormap
         if np.max(heatmap) > 0:
@@ -147,16 +165,22 @@ class VisualizationManager:
                 np.uint8
             )
 
-            # Apply JET colormap directly for better performance
-            heatmap_colored = cv2.applyColorMap(heatmap, cv2.COLORMAP_JET)
+            # Apply selected colormap
+            colormap_dict = {
+                "jet": cv2.COLORMAP_JET,
+                "hot": cv2.COLORMAP_HOT,
+                "rainbow": cv2.COLORMAP_RAINBOW,
+                "ocean": cv2.COLORMAP_OCEAN,
+                "viridis": cv2.COLORMAP_VIRIDIS,
+                "plasma": cv2.COLORMAP_PLASMA,
+                "magma": cv2.COLORMAP_MAGMA,
+                "inferno": cv2.COLORMAP_INFERNO,
+            }
+            colormap_value = colormap_dict.get(color_map, cv2.COLORMAP_JET)
+            heatmap_colored = cv2.applyColorMap(heatmap, colormap_value)
 
-            # Increase contrast
-            heatmap_colored = cv2.addWeighted(
-                heatmap_colored, 1.5, heatmap_colored, 0, 0
-            )
-
-            # Blend with original frame
-            result = cv2.addWeighted(frame, 1 - alpha, heatmap_colored, alpha, 0)
+            # Blend with original frame using specified opacity
+            result = cv2.addWeighted(frame, 1 - opacity, heatmap_colored, opacity, 0)
             return result
 
         return frame
