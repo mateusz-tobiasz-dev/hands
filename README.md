@@ -11,26 +11,82 @@ A powerful application for analyzing and visualizing hand movements in video rec
 ![Second Interface Tab](docs/screenshots/second_tab_interface.png)
 *Secondary interface view with additional controls*
 
-### Visualization Types
+### Feature Demonstrations
 
-#### Trailing Effect
-![Trailing Visualization](docs/screenshots/trailing_demo.png)
-*Hand movement trails showing motion paths with customizable fade effects*
+#### Trailing Effect Visualization
+<table>
+<tr>
+<td width="60%">
+<img src="docs/demos/trailing/demo.gif" alt="Trailing Effect Demo">
+<br><em>Trailing effect visualization (GIF preview)</em>
+</td>
+<td width="40%">
 
-[View Demo](docs/demos/trailing/demo.mp4)
+**Key Features:**
+- Motion path tracking
+- Customizable trail length
+- Adjustable opacity
+- Color-coded fingers
+
+[▶ Watch Full Demo (MP4)](docs/demos/trailing/demo.mp4)
+</td>
+</tr>
+</table>
 
 #### Heatmap Generation
-![Heatmap Visualization](docs/screenshots/heatmap_demo.png)
-*Heat intensity map showing movement concentration areas*
+<table>
+<tr>
+<td width="60%">
+<img src="docs/demos/heatmap/demo.gif" alt="Heatmap Demo">
+<br><em>Heatmap visualization (GIF preview)</em>
+</td>
+<td width="40%">
 
-[View Demo](docs/demos/heatmap/demo.mp4)
+**Key Features:**
+- Movement intensity mapping
+- Multiple color schemes
+- Adjustable radius
+- Blur control
 
-### Real-time Analysis
-![Real-time Analysis](docs/screenshots/real_time_demo.png)
-*Real-time hand tracking and analysis*
+[▶ Watch Full Demo (MP4)](docs/demos/heatmap/demo.mp4)
+</td>
+</tr>
+</table>
 
-![Real-time Analysis v2](docs/screenshots/real_time_demo_v2.png)
-*Alternative view of real-time tracking*
+#### Real-time Analysis
+<table>
+<tr>
+<td width="60%">
+<img src="docs/demos/realtime/demo.gif" alt="Real-time Analysis Demo">
+<br><em>Real-time hand tracking (GIF preview)</em>
+</td>
+<td width="40%">
+
+**Key Features:**
+- Live hand detection
+- Multiple hand tracking
+- Instant visualization
+- Performance metrics
+
+[▶ Watch Full Demo (MP4)](docs/demos/realtime/demo.mp4)
+</td>
+</tr>
+</table>
+
+### Additional Screenshots
+
+<table>
+<tr>
+<td width="50%">
+<img src="docs/screenshots/real_time_demo.png" alt="Real-time Analysis View">
+<br><em>Real-time tracking interface</em>
+</td>
+<td width="50%">
+<img src="docs/screenshots/real_time_demo_v2.png" alt="Alternative Analysis View">
+<br><em>Alternative tracking view with metrics</em>
+</td>
+</tr>
+</table>
 
 ## Features
 
@@ -95,8 +151,14 @@ hands/
     │   └── real_time_demo_v2.png
     └── demos/         # Feature demonstration videos
         ├── trailing/  # Trailing effect demos
+        │   ├── demo.mp4
+        │   └── demo.gif
         ├── heatmap/   # Heatmap visualization demos
+        │   ├── demo.mp4
+        │   └── demo.gif
         └── realtime/  # Real-time analysis demos
+            ├── demo.mp4
+            └── demo.gif
 ```
 
 See [Technical Documentation](TECHNICAL.md) for detailed structure.
