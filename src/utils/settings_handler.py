@@ -2,18 +2,29 @@ import json
 import os
 
 DEFAULT_SETTINGS = {
-    "Resolution": {
-        "camera_width": 640,
-        "camera_height": 640
-    },
+    "Resolution": {"camera_width": 640, "camera_height": 640},
     "Trailing": {
         "trail_length": 10,
         "landmark_size": 2,
         "alpha": 0.6,
         "black_background": False,
-        "alpha_fade": True
-    }
+        "alpha_fade": True,
+    },
+    "Heatmap": {
+        "radius": 30,
+        "opacity": 0.6,
+        "color_map": "jet",
+        "blur_amount": 15,
+        "black_background": False,
+        "accumulate": True,
+    },
+    "ViewSettings": {
+        "original_realtime": True,
+        "trailed_realtime": True,
+        "heatmap_realtime": True,
+    },
 }
+
 
 class SettingsHandler:
     def __init__(self):
@@ -34,52 +45,179 @@ class SettingsHandler:
                 for key in DEFAULT_SETTINGS[group]:
                     if key not in self.settings[group]:
                         self.settings[group][key] = DEFAULT_SETTINGS[group][key]
-        
+
         # Validate resolution values
         camera_width = self.settings["Resolution"]["camera_width"]
         camera_height = self.settings["Resolution"]["camera_height"]
-        
+
         if not self.is_valid_resolution(camera_width, camera_height):
-            self.settings["Resolution"]["camera_width"] = DEFAULT_SETTINGS["Resolution"]["camera_width"]
-            self.settings["Resolution"]["camera_height"] = DEFAULT_SETTINGS["Resolution"]["camera_height"]
-        
+            self.settings["Resolution"]["camera_width"] = DEFAULT_SETTINGS[
+                "Resolution"
+            ]["camera_width"]
+            self.settings["Resolution"]["camera_height"] = DEFAULT_SETTINGS[
+                "Resolution"
+            ]["camera_height"]
+
         # Validate trailing values
         trail_length = self.settings["Trailing"]["trail_length"]
         landmark_size = self.settings["Trailing"]["landmark_size"]
         alpha = self.settings["Trailing"]["alpha"]
         black_background = self.settings["Trailing"]["black_background"]
         alpha_fade = self.settings["Trailing"]["alpha_fade"]
-        
-        if not self.is_valid_trailing(trail_length, landmark_size, alpha, black_background, alpha_fade):
+
+        if not self.is_valid_trailing(
+            trail_length, landmark_size, alpha, black_background, alpha_fade
+        ):
+            print("Invalid trailing settings, resetting to defaults")
             self.settings["Trailing"] = DEFAULT_SETTINGS["Trailing"].copy()
-        
+
+        # Validate heatmap values
+        radius = self.settings["Heatmap"]["radius"]
+        opacity = self.settings["Heatmap"]["opacity"]
+        color_map = self.settings["Heatmap"]["color_map"]
+        blur_amount = self.settings["Heatmap"]["blur_amount"]
+        black_background = self.settings["Heatmap"]["black_background"]
+        accumulate = self.settings["Heatmap"]["accumulate"]
+
+        if not self.is_valid_heatmap(
+            radius, opacity, color_map, blur_amount, black_background, accumulate
+        ):
+            print("Invalid heatmap settings, resetting to defaults")
+            self.settings["Heatmap"] = DEFAULT_SETTINGS["Heatmap"].copy()
+
+        # Validate view settings
+        if "ViewSettings" not in self.settings:
+            self.settings["ViewSettings"] = DEFAULT_SETTINGS["ViewSettings"].copy()
+        else:
+            for key in DEFAULT_SETTINGS["ViewSettings"]:
+                if key not in self.settings["ViewSettings"]:
+                    self.settings["ViewSettings"][key] = DEFAULT_SETTINGS[
+                        "ViewSettings"
+                    ][key]
+                elif not isinstance(self.settings["ViewSettings"][key], bool):
+                    print(f"Invalid ViewSettings value for {key}, resetting to default")
+                    self.settings["ViewSettings"][key] = DEFAULT_SETTINGS[
+                        "ViewSettings"
+                    ][key]
+
         # Save validated settings
         self.save_settings()
 
     def is_valid_resolution(self, width, height):
         if not isinstance(width, (int, float)) or not isinstance(height, (int, float)):
             return False
-        
+
         if width < 320 or width > 1920 or height < 240 or height > 1080:
             return False
-        
+
         # Allow 1:1 ratio along with 16:9 and 4:3
         aspect_ratio = width / height if height != 0 else 0
-        return (1.7 <= aspect_ratio <= 1.8) or (1.3 <= aspect_ratio <= 1.4) or (0.95 <= aspect_ratio <= 1.05)
+        return (
+            (1.7 <= aspect_ratio <= 1.8)
+            or (1.3 <= aspect_ratio <= 1.4)
+            or (0.95 <= aspect_ratio <= 1.05)
+        )
 
-    def is_valid_trailing(self, trail_length, landmark_size, alpha, black_background, alpha_fade):
-        if not isinstance(trail_length, (int, float)) or not isinstance(landmark_size, (int, float)) or not isinstance(alpha, (int, float)) or not isinstance(black_background, bool) or not isinstance(alpha_fade, bool):
+    def is_valid_trailing(
+        self, trail_length, landmark_size, alpha, black_background, alpha_fade
+    ):
+        """Validate trailing settings"""
+        try:
+            # Type checks
+            if not isinstance(trail_length, (int, float)):
+                print("Trail length must be a number")
+                return False
+            if not isinstance(landmark_size, (int, float)):
+                print("Landmark size must be a number")
+                return False
+            if not isinstance(alpha, (int, float)):
+                print("Alpha must be a number")
+                return False
+            if not isinstance(black_background, bool):
+                print("Black background must be a boolean")
+                return False
+            if not isinstance(alpha_fade, bool):
+                print("Alpha fade must be a boolean")
+                return False
+
+            # Range checks
+            if not (1 <= trail_length <= 100):
+                print("Trail length must be between 1 and 100")
+                return False
+            if not (1 <= landmark_size <= 10):
+                print("Landmark size must be between 1 and 10")
+                return False
+            if not (0.1 <= alpha <= 1.0):
+                print("Alpha must be between 0.1 and 1.0")
+                return False
+
+            return True
+        except Exception as e:
+            print(f"Error validating trailing settings: {e}")
             return False
-        
-        if trail_length < 1 or trail_length > 100 or landmark_size < 1 or landmark_size > 10 or alpha < 0 or alpha > 1:
+
+    def is_valid_heatmap(
+        self, radius, opacity, color_map, blur_amount, black_background, accumulate
+    ):
+        """Validate heatmap settings"""
+        try:
+            # Type checks
+            if not isinstance(radius, (int, float)):
+                print("Radius must be a number")
+                return False
+            if not isinstance(opacity, (int, float)):
+                print("Opacity must be a number")
+                return False
+            if not isinstance(color_map, str):
+                print("Color map must be a string")
+                return False
+            if not isinstance(blur_amount, (int, float)):
+                print("Blur amount must be a number")
+                return False
+            if not isinstance(black_background, bool):
+                print("Black background must be a boolean")
+                return False
+            if not isinstance(accumulate, bool):
+                print("Accumulate must be a boolean")
+                return False
+
+            # Range checks
+            if not (1 <= radius <= 100):
+                print("Radius must be between 1 and 100")
+                return False
+            if not (0.1 <= opacity <= 1.0):
+                print("Opacity must be between 0.1 and 1.0")
+                return False
+            if not (1 <= blur_amount <= 50):
+                print("Blur amount must be between 1 and 50")
+                return False
+
+            # Valid color maps
+            valid_color_maps = [
+                "jet",
+                "hot",
+                "cool",
+                "spring",
+                "summer",
+                "autumn",
+                "winter",
+                "bone",
+                "copper",
+                "gray",
+            ]
+            if color_map not in valid_color_maps:
+                print(f"Color map must be one of: {', '.join(valid_color_maps)}")
+                return False
+
+            return True
+        except Exception as e:
+            print(f"Error validating heatmap settings: {e}")
             return False
-        
-        return True
 
     def load_settings(self):
         try:
             if os.path.exists(self.settings_file):
-                with open(self.settings_file, 'r') as f:
+                with open(self.settings_file, "r") as f:
                     return json.load(f)
             return DEFAULT_SETTINGS.copy()
         except Exception as e:
@@ -88,7 +226,7 @@ class SettingsHandler:
 
     def save_settings(self):
         try:
-            with open(self.settings_file, 'w') as f:
+            with open(self.settings_file, "w") as f:
                 json.dump(self.settings, f, indent=4)
             return True
         except Exception as e:

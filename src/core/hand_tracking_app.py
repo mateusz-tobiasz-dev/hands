@@ -3,7 +3,7 @@ import cv2
 import os
 import csv
 from PyQt5.QtWidgets import QApplication, QMessageBox
-from PyQt5.QtCore import QTimer
+from PyQt5.QtCore import QTimer, Qt
 from PyQt5.QtGui import QImage, QPixmap
 from src.gui.camera_viewer_gui import CameraViewerGUI
 from src.utils.utils import log_message
@@ -337,28 +337,45 @@ class CameraViewerApp(CameraViewerGUI):
             h, w, ch = frame_rgb.shape
             bytes_per_line = ch * w
 
-            # Show original frame
-            convert_to_qt_format = QImage(
-                frame_rgb.data, w, h, bytes_per_line, QImage.Format_RGB888
-            )
-            pixmap = QPixmap.fromImage(convert_to_qt_format)
-            self.analyzed_label.setPixmap(pixmap)
+            # Show original frame if real-time is enabled
+            if self.settings_handler.get_setting("ViewSettings", "original_realtime"):
+                convert_to_qt_format = QImage(
+                    frame_rgb.data, w, h, bytes_per_line, QImage.Format_RGB888
+                )
+                pixmap = QPixmap.fromImage(convert_to_qt_format)
+                self.analyzed_label.setPixmap(pixmap)
 
-            # Update trailed frame
-            trailed_frame = self.visualization_manager.generate_trailed_frame(
-                frame_rgb.copy(),
-                self.playback_manager.analyzed_data,
-                self.playback_manager.current_frame_index,
-            )
-            trailed_rgb = cv2.cvtColor(trailed_frame, cv2.COLOR_BGR2RGB)
-            trailed_qt = QImage(
-                trailed_rgb.data, w, h, bytes_per_line, QImage.Format_RGB888
-            )
-            self.trailed_label.setPixmap(QPixmap.fromImage(trailed_qt))
+                # Update mixed view original
+                small_w = w // 2
+                small_h = h // 2
+                small_original = pixmap.scaled(
+                    small_w, small_h, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                )
+                self.mixed_original_label.setPixmap(small_original)
 
-            # If real-time heatmap is enabled, update the heatmap tab
-            if self.realtime_heatmap_checkbox.isChecked():
-                # Use a shorter frame range for real-time display
+            # Update trailed frame if real-time is enabled
+            if self.settings_handler.get_setting("ViewSettings", "trailed_realtime"):
+                trailed_frame = self.visualization_manager.generate_trailed_frame(
+                    frame_rgb.copy(),
+                    self.playback_manager.analyzed_data,
+                    self.playback_manager.current_frame_index,
+                )
+                trailed_rgb = cv2.cvtColor(trailed_frame, cv2.COLOR_BGR2RGB)
+                trailed_qt = QImage(
+                    trailed_rgb.data, w, h, bytes_per_line, QImage.Format_RGB888
+                )
+                self.trailed_label.setPixmap(QPixmap.fromImage(trailed_qt))
+
+                # Update mixed view trailed
+                small_w = w // 2
+                small_h = h // 2
+                small_trailed = QPixmap.fromImage(trailed_qt).scaled(
+                    small_w, small_h, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                )
+                self.mixed_trailed_label.setPixmap(small_trailed)
+
+            # Update heatmap frame if real-time is enabled
+            if self.settings_handler.get_setting("ViewSettings", "heatmap_realtime"):
                 trail_length = self.settings_handler.settings["Trailing"][
                     "trail_length"
                 ]
@@ -378,6 +395,14 @@ class CameraViewerApp(CameraViewerGUI):
                     heatmap_rgb.data, w, h, bytes_per_line, QImage.Format_RGB888
                 )
                 self.heatmap_label.setPixmap(QPixmap.fromImage(heatmap_qt))
+
+                # Update mixed view heatmap
+                small_w = w // 2
+                small_h = h // 2
+                small_heatmap = QPixmap.fromImage(heatmap_qt).scaled(
+                    small_w, small_h, Qt.KeepAspectRatio, Qt.SmoothTransformation
+                )
+                self.mixed_heatmap_label.setPixmap(small_heatmap)
 
             # Update landmarks and stats
             frame_data = self.playback_manager.analyzed_data[
@@ -1168,7 +1193,7 @@ class CameraViewerApp(CameraViewerGUI):
             self.show_progress_bar(False)
 
     def generate_and_display_heatmap(self):
-        """Generate and display the heatmap for the current frame range"""
+        """Generate and display the heatmap for the current frame"""
         if not self.playback_manager.is_playback_ready():
             return
 
@@ -1180,13 +1205,19 @@ class CameraViewerApp(CameraViewerGUI):
             h, w, ch = frame_rgb.shape
             bytes_per_line = ch * w
 
+            # Use the same logic as realtime display
+            trail_length = self.settings_handler.settings["Trailing"]["trail_length"]
+            start_frame = max(
+                0, self.playback_manager.current_frame_index - trail_length
+            )
+
             # Generate heatmap for the current frame range
             heatmap_frame = self.visualization_manager.generate_heatmap_frame(
                 frame_rgb.copy(),
                 self.playback_manager.analyzed_data,
                 self.playback_manager.current_frame_index,
-                start_frame=self.frame_slider.low(),
-                end_frame=self.frame_slider.high(),
+                start_frame=start_frame,
+                end_frame=self.playback_manager.current_frame_index,
             )
 
             # Convert and display heatmap
@@ -1195,6 +1226,14 @@ class CameraViewerApp(CameraViewerGUI):
                 heatmap_rgb.data, w, h, bytes_per_line, QImage.Format_RGB888
             )
             self.heatmap_label.setPixmap(QPixmap.fromImage(heatmap_qt))
+
+            # Update mixed view heatmap
+            small_w = w // 2
+            small_h = h // 2
+            small_heatmap = QPixmap.fromImage(heatmap_qt).scaled(
+                small_w, small_h, Qt.KeepAspectRatio, Qt.SmoothTransformation
+            )
+            self.mixed_heatmap_label.setPixmap(small_heatmap)
 
 
 if __name__ == "__main__":

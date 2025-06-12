@@ -61,6 +61,19 @@ class CameraViewerGUI(QMainWindow):
         self.validate_and_update_resolution()
 
     def setup_ui(self):
+        # Initialize checkboxes as None to avoid attribute errors
+        self.original_realtime_checkbox = None
+        self.mixed_original_realtime_checkbox = None
+        self.settings_original_realtime_checkbox = None
+
+        self.trailed_realtime_checkbox = None
+        self.mixed_trailed_realtime_checkbox = None
+        self.settings_trailed_realtime_checkbox = None
+
+        self.heatmap_realtime_checkbox = None
+        self.mixed_heatmap_realtime_checkbox = None
+        self.settings_heatmap_realtime_checkbox = None
+
         central_widget = QWidget()
         self.setCentralWidget(central_widget)
         main_layout = QHBoxLayout(central_widget)
@@ -148,8 +161,13 @@ class CameraViewerGUI(QMainWindow):
         self.analyzed_label.setMinimumSize(320, 240)  # Smaller minimum size
         self.original_resolution_label = QLabel("Original: --x-- | FPS: --")
         self.original_resolution_label.setAlignment(Qt.AlignCenter)
+        self.original_realtime_checkbox = QCheckBox("Real-time Update")
+        self.original_realtime_checkbox.setChecked(
+            self.settings_handler.get_setting("ViewSettings", "original_realtime")
+        )
         original_layout.addWidget(self.analyzed_label)
         original_layout.addWidget(self.original_resolution_label)
+        original_layout.addWidget(self.original_realtime_checkbox)
         self.visualization_tabs.addTab(original_tab, "Original")
 
         # Trailed tab
@@ -161,8 +179,13 @@ class CameraViewerGUI(QMainWindow):
         self.trailed_label.setMinimumSize(320, 240)  # Smaller minimum size
         self.trailed_resolution_label = QLabel("Original: --x-- | FPS: --")
         self.trailed_resolution_label.setAlignment(Qt.AlignCenter)
+        self.trailed_realtime_checkbox = QCheckBox("Real-time Update")
+        self.trailed_realtime_checkbox.setChecked(
+            self.settings_handler.get_setting("ViewSettings", "trailed_realtime")
+        )
         trailed_layout.addWidget(self.trailed_label)
         trailed_layout.addWidget(self.trailed_resolution_label)
+        trailed_layout.addWidget(self.trailed_realtime_checkbox)
         self.visualization_tabs.addTab(trailed_tab, "Trailed")
 
         # Heatmap tab
@@ -174,9 +197,71 @@ class CameraViewerGUI(QMainWindow):
         self.heatmap_label.setMinimumSize(320, 240)  # Smaller minimum size
         self.heatmap_resolution_label = QLabel("Original: --x-- | FPS: --")
         self.heatmap_resolution_label.setAlignment(Qt.AlignCenter)
+        self.heatmap_realtime_checkbox = QCheckBox("Real-time Update")
+        self.heatmap_realtime_checkbox.setChecked(
+            self.settings_handler.get_setting("ViewSettings", "heatmap_realtime")
+        )
         heatmap_layout.addWidget(self.heatmap_label)
         heatmap_layout.addWidget(self.heatmap_resolution_label)
+        heatmap_layout.addWidget(self.heatmap_realtime_checkbox)
         self.visualization_tabs.addTab(heatmap_tab, "Heatmap")
+
+        # Mixed tab
+        mixed_tab = QWidget()
+        mixed_layout = QGridLayout(mixed_tab)
+
+        # Original view
+        mixed_original_group = QGroupBox("Original")
+        mixed_original_layout = QVBoxLayout(mixed_original_group)
+        self.mixed_original_label = QLabel()
+        self.mixed_original_label.setAlignment(Qt.AlignCenter)
+        self.mixed_original_label.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Expanding
+        )
+        self.mixed_original_label.setMinimumSize(320, 240)
+        self.mixed_original_realtime_checkbox = QCheckBox("Real-time Update")
+        self.mixed_original_realtime_checkbox.setChecked(
+            self.settings_handler.get_setting("ViewSettings", "original_realtime")
+        )
+        mixed_original_layout.addWidget(self.mixed_original_label)
+        mixed_original_layout.addWidget(self.mixed_original_realtime_checkbox)
+        mixed_layout.addWidget(mixed_original_group, 0, 0)
+
+        # Trailed view
+        mixed_trailed_group = QGroupBox("Trailed")
+        mixed_trailed_layout = QVBoxLayout(mixed_trailed_group)
+        self.mixed_trailed_label = QLabel()
+        self.mixed_trailed_label.setAlignment(Qt.AlignCenter)
+        self.mixed_trailed_label.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Expanding
+        )
+        self.mixed_trailed_label.setMinimumSize(320, 240)
+        self.mixed_trailed_realtime_checkbox = QCheckBox("Real-time Update")
+        self.mixed_trailed_realtime_checkbox.setChecked(
+            self.settings_handler.get_setting("ViewSettings", "trailed_realtime")
+        )
+        mixed_trailed_layout.addWidget(self.mixed_trailed_label)
+        mixed_trailed_layout.addWidget(self.mixed_trailed_realtime_checkbox)
+        mixed_layout.addWidget(mixed_trailed_group, 0, 1)
+
+        # Heatmap view
+        mixed_heatmap_group = QGroupBox("Heatmap")
+        mixed_heatmap_layout = QVBoxLayout(mixed_heatmap_group)
+        self.mixed_heatmap_label = QLabel()
+        self.mixed_heatmap_label.setAlignment(Qt.AlignCenter)
+        self.mixed_heatmap_label.setSizePolicy(
+            QSizePolicy.Expanding, QSizePolicy.Expanding
+        )
+        self.mixed_heatmap_label.setMinimumSize(320, 240)
+        self.mixed_heatmap_realtime_checkbox = QCheckBox("Real-time Update")
+        self.mixed_heatmap_realtime_checkbox.setChecked(
+            self.settings_handler.get_setting("ViewSettings", "heatmap_realtime")
+        )
+        mixed_heatmap_layout.addWidget(self.mixed_heatmap_label)
+        mixed_heatmap_layout.addWidget(self.mixed_heatmap_realtime_checkbox)
+        mixed_layout.addWidget(mixed_heatmap_group, 1, 0, 1, 2)
+
+        self.visualization_tabs.addTab(mixed_tab, "Mixed")
 
         recorded_layout.addWidget(self.analyzed_frame, 1)  # Give it more vertical space
 
@@ -258,6 +343,37 @@ class CameraViewerGUI(QMainWindow):
 
         right_layout.addStretch(1)
 
+        # Connect all checkbox signals after all UI elements are created
+        self.original_realtime_checkbox.stateChanged.connect(
+            self.on_original_realtime_changed
+        )
+        self.mixed_original_realtime_checkbox.stateChanged.connect(
+            self.on_original_realtime_changed
+        )
+        self.settings_original_realtime_checkbox.stateChanged.connect(
+            self.on_original_realtime_changed
+        )
+
+        self.trailed_realtime_checkbox.stateChanged.connect(
+            self.on_trailed_realtime_changed
+        )
+        self.mixed_trailed_realtime_checkbox.stateChanged.connect(
+            self.on_trailed_realtime_changed
+        )
+        self.settings_trailed_realtime_checkbox.stateChanged.connect(
+            self.on_trailed_realtime_changed
+        )
+
+        self.heatmap_realtime_checkbox.stateChanged.connect(
+            self.on_heatmap_realtime_changed
+        )
+        self.mixed_heatmap_realtime_checkbox.stateChanged.connect(
+            self.on_heatmap_realtime_changed
+        )
+        self.settings_heatmap_realtime_checkbox.stateChanged.connect(
+            self.on_heatmap_realtime_changed
+        )
+
     def setup_settings_ui(self):
         settings_layout = QVBoxLayout()
 
@@ -275,9 +391,168 @@ class CameraViewerGUI(QMainWindow):
         # Display controls
         display_group = QGroupBox("Display Settings")
         display_layout = QVBoxLayout()
-        self.realtime_heatmap_checkbox = QCheckBox("Show Real-time Heatmap")
-        self.realtime_heatmap_checkbox.setChecked(False)
-        display_layout.addWidget(self.realtime_heatmap_checkbox)
+
+        # Real-time update controls
+        realtime_group = QGroupBox("Real-time Updates")
+        realtime_layout = QVBoxLayout()
+
+        # Settings panel checkboxes
+        self.settings_original_realtime_checkbox = QCheckBox("Original View")
+        self.settings_original_realtime_checkbox.setChecked(
+            self.settings_handler.get_setting("ViewSettings", "original_realtime")
+        )
+        self.settings_trailed_realtime_checkbox = QCheckBox("Trailed View")
+        self.settings_trailed_realtime_checkbox.setChecked(
+            self.settings_handler.get_setting("ViewSettings", "trailed_realtime")
+        )
+        self.settings_heatmap_realtime_checkbox = QCheckBox("Heatmap View")
+        self.settings_heatmap_realtime_checkbox.setChecked(
+            self.settings_handler.get_setting("ViewSettings", "heatmap_realtime")
+        )
+
+        realtime_layout.addWidget(self.settings_original_realtime_checkbox)
+        realtime_layout.addWidget(self.settings_trailed_realtime_checkbox)
+        realtime_layout.addWidget(self.settings_heatmap_realtime_checkbox)
+        realtime_group.setLayout(realtime_layout)
+        display_layout.addWidget(realtime_group)
+
+        # Trailing options group
+        trailing_group = QGroupBox("Trailing Options")
+        trailing_layout = QGridLayout()
+
+        # Trail length
+        trailing_layout.addWidget(QLabel("Trail Length:"), 0, 0)
+        self.trail_length_input = QSpinBox()
+        self.trail_length_input.setRange(1, 100)
+        self.trail_length_input.setValue(
+            self.settings_handler.get_setting("Trailing", "trail_length")
+        )
+        self.trail_length_input.valueChanged.connect(self.on_trail_length_changed)
+        trailing_layout.addWidget(self.trail_length_input, 0, 1)
+
+        # Landmark size
+        trailing_layout.addWidget(QLabel("Landmark Size:"), 1, 0)
+        self.landmark_size_input = QSpinBox()
+        self.landmark_size_input.setRange(1, 10)
+        self.landmark_size_input.setValue(
+            self.settings_handler.get_setting("Trailing", "landmark_size")
+        )
+        self.landmark_size_input.valueChanged.connect(self.on_landmark_size_changed)
+        trailing_layout.addWidget(self.landmark_size_input, 1, 1)
+
+        # Alpha value
+        trailing_layout.addWidget(QLabel("Alpha:"), 2, 0)
+        self.alpha_input = QDoubleSpinBox()
+        self.alpha_input.setRange(0.1, 1.0)
+        self.alpha_input.setSingleStep(0.1)
+        self.alpha_input.setValue(
+            self.settings_handler.get_setting("Trailing", "alpha")
+        )
+        self.alpha_input.valueChanged.connect(self.on_alpha_changed)
+        trailing_layout.addWidget(self.alpha_input, 2, 1)
+
+        # Black background checkbox
+        self.black_background_checkbox = QCheckBox("Black Background")
+        self.black_background_checkbox.setChecked(
+            self.settings_handler.get_setting("Trailing", "black_background")
+        )
+        self.black_background_checkbox.stateChanged.connect(
+            self.on_black_background_changed
+        )
+        trailing_layout.addWidget(self.black_background_checkbox, 3, 0, 1, 2)
+
+        # Alpha fade checkbox
+        self.alpha_fade_checkbox = QCheckBox("Alpha Fade")
+        self.alpha_fade_checkbox.setChecked(
+            self.settings_handler.get_setting("Trailing", "alpha_fade")
+        )
+        self.alpha_fade_checkbox.stateChanged.connect(self.on_alpha_fade_changed)
+        trailing_layout.addWidget(self.alpha_fade_checkbox, 4, 0, 1, 2)
+
+        trailing_group.setLayout(trailing_layout)
+        display_layout.addWidget(trailing_group)
+
+        # Heatmap options group
+        heatmap_group = QGroupBox("Heatmap Options")
+        heatmap_layout = QGridLayout()
+
+        # Radius
+        heatmap_layout.addWidget(QLabel("Radius:"), 0, 0)
+        self.heatmap_radius_input = QSpinBox()
+        self.heatmap_radius_input.setRange(1, 100)
+        self.heatmap_radius_input.setValue(
+            self.settings_handler.get_setting("Heatmap", "radius")
+        )
+        self.heatmap_radius_input.valueChanged.connect(self.on_heatmap_radius_changed)
+        heatmap_layout.addWidget(self.heatmap_radius_input, 0, 1)
+
+        # Opacity
+        heatmap_layout.addWidget(QLabel("Opacity:"), 1, 0)
+        self.heatmap_opacity_input = QDoubleSpinBox()
+        self.heatmap_opacity_input.setRange(0.1, 1.0)
+        self.heatmap_opacity_input.setSingleStep(0.1)
+        self.heatmap_opacity_input.setValue(
+            self.settings_handler.get_setting("Heatmap", "opacity")
+        )
+        self.heatmap_opacity_input.valueChanged.connect(self.on_heatmap_opacity_changed)
+        heatmap_layout.addWidget(self.heatmap_opacity_input, 1, 1)
+
+        # Color map
+        heatmap_layout.addWidget(QLabel("Color Map:"), 2, 0)
+        self.heatmap_colormap_combo = QComboBox()
+        color_maps = [
+            "jet",
+            "hot",
+            "cool",
+            "spring",
+            "summer",
+            "autumn",
+            "winter",
+            "bone",
+            "copper",
+            "gray",
+        ]
+        self.heatmap_colormap_combo.addItems(color_maps)
+        current_colormap = self.settings_handler.get_setting("Heatmap", "color_map")
+        self.heatmap_colormap_combo.setCurrentText(current_colormap)
+        self.heatmap_colormap_combo.currentTextChanged.connect(
+            self.on_heatmap_colormap_changed
+        )
+        heatmap_layout.addWidget(self.heatmap_colormap_combo, 2, 1)
+
+        # Blur amount
+        heatmap_layout.addWidget(QLabel("Blur Amount:"), 3, 0)
+        self.heatmap_blur_input = QSpinBox()
+        self.heatmap_blur_input.setRange(1, 50)
+        self.heatmap_blur_input.setValue(
+            self.settings_handler.get_setting("Heatmap", "blur_amount")
+        )
+        self.heatmap_blur_input.valueChanged.connect(self.on_heatmap_blur_changed)
+        heatmap_layout.addWidget(self.heatmap_blur_input, 3, 1)
+
+        # Black background checkbox
+        self.heatmap_black_background_checkbox = QCheckBox("Black Background")
+        self.heatmap_black_background_checkbox.setChecked(
+            self.settings_handler.get_setting("Heatmap", "black_background")
+        )
+        self.heatmap_black_background_checkbox.stateChanged.connect(
+            self.on_heatmap_black_background_changed
+        )
+        heatmap_layout.addWidget(self.heatmap_black_background_checkbox, 4, 0, 1, 2)
+
+        # Accumulate checkbox
+        self.heatmap_accumulate_checkbox = QCheckBox("Accumulate")
+        self.heatmap_accumulate_checkbox.setChecked(
+            self.settings_handler.get_setting("Heatmap", "accumulate")
+        )
+        self.heatmap_accumulate_checkbox.stateChanged.connect(
+            self.on_heatmap_accumulate_changed
+        )
+        heatmap_layout.addWidget(self.heatmap_accumulate_checkbox, 5, 0, 1, 2)
+
+        heatmap_group.setLayout(heatmap_layout)
+        display_layout.addWidget(heatmap_group)
+
         display_group.setLayout(display_layout)
         settings_layout.addWidget(display_group)
 
@@ -340,56 +615,6 @@ class CameraViewerGUI(QMainWindow):
         resolution_group.setLayout(resolution_layout)
         settings_layout.addWidget(resolution_group)
 
-        # Trailing Settings Group
-        trailing_group = QGroupBox("Trailing")
-        trailing_layout = QGridLayout()
-
-        self.trail_length_input = QSpinBox()
-        self.trail_length_input.setRange(1, 100)
-        self.trail_length_input.setValue(
-            self.settings_handler.get_setting("Trailing", "trail_length")
-        )
-
-        self.landmark_size_input = QSpinBox()
-        self.landmark_size_input.setRange(1, 10)
-        self.landmark_size_input.setValue(
-            self.settings_handler.get_setting("Trailing", "landmark_size")
-        )
-
-        self.alpha_input = QDoubleSpinBox()
-        self.alpha_input.setRange(0.1, 1.0)
-        self.alpha_input.setSingleStep(0.1)
-        self.alpha_input.setValue(
-            self.settings_handler.get_setting("Trailing", "alpha")
-        )
-
-        trailing_layout.addWidget(QLabel("Trail Length:"), 0, 0)
-        trailing_layout.addWidget(self.trail_length_input, 0, 1)
-        trailing_layout.addWidget(QLabel("Landmark Size:"), 1, 0)
-        trailing_layout.addWidget(self.landmark_size_input, 1, 1)
-        trailing_layout.addWidget(QLabel("Trail Opacity:"), 2, 0)
-        trailing_layout.addWidget(self.alpha_input, 2, 1)
-
-        self.black_background_checkbox = QCheckBox("Black Background")
-        self.black_background_checkbox.setChecked(
-            self.settings_handler.get_setting("Trailing", "black_background")
-        )
-        trailing_layout.addWidget(self.black_background_checkbox, 3, 0, 1, 2)
-
-        self.alpha_fade_checkbox = QCheckBox("Fade Trail Effect")
-        self.alpha_fade_checkbox.setChecked(
-            self.settings_handler.get_setting("Trailing", "alpha_fade")
-        )
-        trailing_layout.addWidget(self.alpha_fade_checkbox, 4, 0, 1, 2)
-        trailing_group.setLayout(trailing_layout)
-        settings_layout.addWidget(trailing_group)
-
-        # Add save settings button
-        self.save_settings_button = QPushButton("Save Settings")
-        self.save_settings_button.clicked.connect(self.save_settings)
-        settings_layout.addWidget(self.save_settings_button)
-
-        settings_layout.addStretch()
         self.settings_widget.setLayout(settings_layout)
 
     def on_preset_selected(self, text):
@@ -442,6 +667,27 @@ class CameraViewerGUI(QMainWindow):
         )
         self.settings_handler.set_setting(
             "Trailing", "alpha_fade", self.alpha_fade_checkbox.isChecked()
+        )
+
+        self.settings_handler.set_setting(
+            "Heatmap", "radius", self.heatmap_radius_input.value()
+        )
+        self.settings_handler.set_setting(
+            "Heatmap", "opacity", self.heatmap_opacity_input.value()
+        )
+        self.settings_handler.set_setting(
+            "Heatmap", "color_map", self.heatmap_colormap_combo.currentText()
+        )
+        self.settings_handler.set_setting(
+            "Heatmap", "blur_amount", self.heatmap_blur_input.value()
+        )
+        self.settings_handler.set_setting(
+            "Heatmap",
+            "black_background",
+            self.heatmap_black_background_checkbox.isChecked(),
+        )
+        self.settings_handler.set_setting(
+            "Heatmap", "accumulate", self.heatmap_accumulate_checkbox.isChecked()
         )
 
         self.settings_handler.save_settings()
@@ -867,3 +1113,101 @@ class CameraViewerGUI(QMainWindow):
 
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save partial CSV: {str(e)}")
+
+    def on_original_realtime_changed(self, state):
+        """Handle changes to original view real-time checkbox"""
+        is_checked = bool(state)
+        # Prevent infinite recursion by checking if the state actually changed
+        if self.original_realtime_checkbox.isChecked() != is_checked:
+            self.original_realtime_checkbox.setChecked(is_checked)
+        if self.mixed_original_realtime_checkbox.isChecked() != is_checked:
+            self.mixed_original_realtime_checkbox.setChecked(is_checked)
+        if self.settings_original_realtime_checkbox.isChecked() != is_checked:
+            self.settings_original_realtime_checkbox.setChecked(is_checked)
+        self.settings_handler.set_setting(
+            "ViewSettings", "original_realtime", is_checked
+        )
+        self.settings_handler.save_settings()
+
+    def on_trailed_realtime_changed(self, state):
+        """Handle changes to trailed view real-time checkbox"""
+        is_checked = bool(state)
+        if self.trailed_realtime_checkbox.isChecked() != is_checked:
+            self.trailed_realtime_checkbox.setChecked(is_checked)
+        if self.mixed_trailed_realtime_checkbox.isChecked() != is_checked:
+            self.mixed_trailed_realtime_checkbox.setChecked(is_checked)
+        if self.settings_trailed_realtime_checkbox.isChecked() != is_checked:
+            self.settings_trailed_realtime_checkbox.setChecked(is_checked)
+        self.settings_handler.set_setting(
+            "ViewSettings", "trailed_realtime", is_checked
+        )
+        self.settings_handler.save_settings()
+
+    def on_heatmap_realtime_changed(self, state):
+        """Handle changes to heatmap view real-time checkbox"""
+        is_checked = bool(state)
+        if self.heatmap_realtime_checkbox.isChecked() != is_checked:
+            self.heatmap_realtime_checkbox.setChecked(is_checked)
+        if self.mixed_heatmap_realtime_checkbox.isChecked() != is_checked:
+            self.mixed_heatmap_realtime_checkbox.setChecked(is_checked)
+        if self.settings_heatmap_realtime_checkbox.isChecked() != is_checked:
+            self.settings_heatmap_realtime_checkbox.setChecked(is_checked)
+        self.settings_handler.set_setting(
+            "ViewSettings", "heatmap_realtime", is_checked
+        )
+        self.settings_handler.save_settings()
+
+    def on_trail_length_changed(self, value):
+        """Handle changes to trail length"""
+        self.settings_handler.set_setting("Trailing", "trail_length", value)
+        self.settings_handler.save_settings()
+
+    def on_landmark_size_changed(self, value):
+        """Handle changes to landmark size"""
+        self.settings_handler.set_setting("Trailing", "landmark_size", value)
+        self.settings_handler.save_settings()
+
+    def on_alpha_changed(self, value):
+        """Handle changes to alpha"""
+        self.settings_handler.set_setting("Trailing", "alpha", value)
+        self.settings_handler.save_settings()
+
+    def on_black_background_changed(self, state):
+        """Handle changes to black background checkbox"""
+        self.settings_handler.set_setting("Trailing", "black_background", state)
+        self.settings_handler.save_settings()
+
+    def on_alpha_fade_changed(self, state):
+        """Handle changes to alpha fade checkbox"""
+        self.settings_handler.set_setting("Trailing", "alpha_fade", state)
+        self.settings_handler.save_settings()
+
+    def on_heatmap_radius_changed(self, value):
+        """Handle changes to heatmap radius"""
+        self.settings_handler.set_setting("Heatmap", "radius", value)
+        self.settings_handler.save_settings()
+
+    def on_heatmap_opacity_changed(self, value):
+        """Handle changes to heatmap opacity"""
+        self.settings_handler.set_setting("Heatmap", "opacity", value)
+        self.settings_handler.save_settings()
+
+    def on_heatmap_colormap_changed(self, value):
+        """Handle changes to heatmap color map"""
+        self.settings_handler.set_setting("Heatmap", "color_map", value)
+        self.settings_handler.save_settings()
+
+    def on_heatmap_blur_changed(self, value):
+        """Handle changes to heatmap blur amount"""
+        self.settings_handler.set_setting("Heatmap", "blur_amount", value)
+        self.settings_handler.save_settings()
+
+    def on_heatmap_black_background_changed(self, state):
+        """Handle changes to heatmap black background checkbox"""
+        self.settings_handler.set_setting("Heatmap", "black_background", bool(state))
+        self.settings_handler.save_settings()
+
+    def on_heatmap_accumulate_changed(self, state):
+        """Handle changes to heatmap accumulate checkbox"""
+        self.settings_handler.set_setting("Heatmap", "accumulate", bool(state))
+        self.settings_handler.save_settings()

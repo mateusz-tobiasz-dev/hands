@@ -4,15 +4,26 @@
         "camera_height": 1080
     },
     "Trailing": {
-        "trail_length": 60,
+        "trail_length": 50,
         "landmark_size": 5,
-        "alpha": 1.0,
-        "black_background": true,
+        "alpha": 0.9999999999999999,
+        "black_background": 2,
         "alpha_fade": true
     },
     "Heatmap": {
         "intensity": 1.5,
         "blur_size": 5,
-        "threshold": 0.15
+        "threshold": 0.15,
+        "radius": 1,
+        "opacity": 0.9999999999999999,
+        "color_map": "jet",
+        "blur_amount": 20,
+        "black_background": true,
+        "accumulate": false
+    },
+    "ViewSettings": {
+        "original_realtime": true,
+        "trailed_realtime": true,
+        "heatmap_realtime": true
     }
 }
