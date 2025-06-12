@@ -100,8 +100,6 @@ pip install -r requirements.txt
 python main.py
 ```
 
-For detailed instructions, see [Installation Guide](INSTALL.md)
-
 ## Documentation
 
 - [Technical Documentation](TECHNICAL.md) - Detailed project structure and implementation details
