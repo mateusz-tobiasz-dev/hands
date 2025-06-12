@@ -5,9 +5,14 @@
     },
     "Trailing": {
         "trail_length": 60,
-        "landmark_size": 2,
+        "landmark_size": 5,
         "alpha": 1.0,
         "black_background": true,
         "alpha_fade": true
+    },
+    "Heatmap": {
+        "intensity": 1.5,
+        "blur_size": 5,
+        "threshold": 0.15
     }
 }

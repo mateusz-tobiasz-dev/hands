@@ -1,35 +1,9 @@
 from PyQt5.QtWidgets import (
-    QMainWindow,
-    QWidget,
-    QVBoxLayout,
-    QHBoxLayout,
-    QComboBox,
-    QPushButton,
-    QLabel,
-    QFrame,
-    QTextEdit,
-    QProgressBar,
-    QTabWidget,
     QTableWidget,
     QTableWidgetItem,
     QHeaderView,
-    QSlider,
-    QSizePolicy,
-    QSpinBox,
-    QMessageBox,
-    QProgressDialog,
-    QGroupBox,
-    QGridLayout,
-    QDoubleSpinBox,
-    QCheckBox
 )
-from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QImage, QPixmap, QStandardItemModel, QStandardItem
-from src.utils.settings_handler import SettingsHandler
-from src.utils.utils import save_raw_movie
-import os
-import datetime
-import time
+
 
 class TableView(QTableWidget):
     def __init__(self, parent=None):

@@ -1,5 +1,5 @@
-from PyQt5.QtCore import QTimer
 import cv2
+
 
 class PlaybackManager:
     def __init__(self):
@@ -14,16 +14,16 @@ class PlaybackManager:
         try:
             if self.cap is not None:
                 self.cap.release()
-            
+
             self.cap = cv2.VideoCapture(video_path)
             if not self.cap.isOpened():
                 print(f"Failed to open video: {video_path}")
                 return False
-                
+
             # Set initial position
             self.current_frame_index = 0
             self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
-            
+
             return True
         except Exception as e:
             print(f"Error loading video: {str(e)}")
@@ -33,13 +33,13 @@ class PlaybackManager:
         """Get a specific frame from the video"""
         if self.cap is None:
             return None
-                
+
         try:
             # Check if we need to seek to the frame
             current_pos = int(self.cap.get(cv2.CAP_PROP_POS_FRAMES))
             if current_pos != frame_index:
                 self.cap.set(cv2.CAP_PROP_POS_FRAMES, frame_index)
-            
+
             ret, frame = self.cap.read()
             if ret:
                 # Reset position if we reached the end
@@ -59,7 +59,7 @@ class PlaybackManager:
     def get_total_frames(self):
         """Get total number of frames in video"""
         return int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT)) if self.cap else 0
-        
+
     def is_playback_ready(self):
         """Check if playback is ready (both video and analysis data available)"""
         return self.cap is not None and len(self.analyzed_data) > 0

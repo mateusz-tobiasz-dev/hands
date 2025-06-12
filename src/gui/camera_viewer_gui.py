@@ -10,30 +10,21 @@ from PyQt5.QtWidgets import (
     QTextEdit,
     QProgressBar,
     QTabWidget,
-    QTableWidget,
-    QTableWidgetItem,
-    QHeaderView,
-    QSlider,
     QSizePolicy,
     QSpinBox,
     QMessageBox,
-    QProgressDialog,
     QGroupBox,
     QGridLayout,
     QDoubleSpinBox,
-    QCheckBox
+    QCheckBox,
 )
 from PyQt5.QtCore import Qt
-from PyQt5.QtGui import QImage, QPixmap, QStandardItemModel, QStandardItem
 from src.utils.settings_handler import SettingsHandler
-from src.utils.utils import save_raw_movie
 from src.gui.table_view import TableView
 import os
-import datetime
 import time
 import cv2
 import csv
-from PyQt5.QtCore import Qt, QTimer
 from src.utils.slider import RangeSlider
 
 
@@ -42,28 +33,28 @@ class CameraViewerGUI(QMainWindow):
         super().__init__()
         self.setWindowTitle("Camera Viewer App")
         self.showMaximized()
-        
+
         self.settings_handler = SettingsHandler()
         self.resolution_presets = {
             "1:1 Ratio": [
                 ("640x640", 320, 320),
                 ("640x640", 640, 640),
                 ("800x800", 800, 800),
-                ("1024x1024", 1024, 1024)
+                ("1024x1024", 1024, 1024),
             ],
             "4:3 Ratio": [
                 ("320x240", 320, 240),
                 ("640x480", 640, 480),
                 ("800x600", 800, 600),
                 ("1024x768", 1024, 768),
-                ("1600x1200", 1600, 1200)
+                ("1600x1200", 1600, 1200),
             ],
             "16:9 Ratio": [
                 ("640x360", 640, 360),
                 ("1280x720", 1280, 720),
                 ("1600x900", 1600, 900),
-                ("1920x1080", 1920, 1080)
-            ]
+                ("1920x1080", 1920, 1080),
+            ],
         }
         self.setup_ui()
         self.connect_resolution_signals()
@@ -143,11 +134,11 @@ class CameraViewerGUI(QMainWindow):
         self.analyzed_frame.setFrameShape(QFrame.Box)
         self.analyzed_frame.setLineWidth(2)
         analyzed_frame_layout = QVBoxLayout(self.analyzed_frame)
-        
+
         # Create visualization tabs
         self.visualization_tabs = QTabWidget()
         analyzed_frame_layout.addWidget(self.visualization_tabs)
-        
+
         # Original tab
         original_tab = QWidget()
         original_layout = QVBoxLayout(original_tab)
@@ -160,7 +151,7 @@ class CameraViewerGUI(QMainWindow):
         original_layout.addWidget(self.analyzed_label)
         original_layout.addWidget(self.original_resolution_label)
         self.visualization_tabs.addTab(original_tab, "Original")
-        
+
         # Trailed tab
         trailed_tab = QWidget()
         trailed_layout = QVBoxLayout(trailed_tab)
@@ -173,7 +164,7 @@ class CameraViewerGUI(QMainWindow):
         trailed_layout.addWidget(self.trailed_label)
         trailed_layout.addWidget(self.trailed_resolution_label)
         self.visualization_tabs.addTab(trailed_tab, "Trailed")
-        
+
         # Heatmap tab
         heatmap_tab = QWidget()
         heatmap_layout = QVBoxLayout(heatmap_tab)
@@ -186,7 +177,7 @@ class CameraViewerGUI(QMainWindow):
         heatmap_layout.addWidget(self.heatmap_label)
         heatmap_layout.addWidget(self.heatmap_resolution_label)
         self.visualization_tabs.addTab(heatmap_tab, "Heatmap")
-        
+
         recorded_layout.addWidget(self.analyzed_frame, 1)  # Give it more vertical space
 
         # Playback controls
@@ -201,7 +192,7 @@ class CameraViewerGUI(QMainWindow):
 
         # Frame slider and frame number
         slider_layout = QHBoxLayout()
-        
+
         self.min_frame_spin = QSpinBox()
         self.min_frame_spin.setMinimum(0)
         self.min_frame_spin.valueChanged.connect(self.on_min_frame_changed)
@@ -223,14 +214,30 @@ class CameraViewerGUI(QMainWindow):
         # Analyzed data frames
         analyzed_layout = QHBoxLayout()
 
+        # Create tabs for hand data
+        self.hand_data_tabs = QTabWidget()
+        analyzed_layout.addWidget(self.hand_data_tabs)
+
+        # Overall stats tab
+        overall_stats_tab = QWidget()
+        overall_stats_layout = QVBoxLayout(overall_stats_tab)
+        self.overall_stats_table = TableView()
+        overall_stats_layout.addWidget(self.overall_stats_table)
+        self.hand_data_tabs.addTab(overall_stats_tab, "Overall Stats")
+
+        # Left hand landmarks tab
+        left_hand_tab = QWidget()
+        left_hand_layout = QVBoxLayout(left_hand_tab)
         self.left_landmarks_table = TableView()
-        analyzed_layout.addWidget(self.left_landmarks_table)
+        left_hand_layout.addWidget(self.left_landmarks_table)
+        self.hand_data_tabs.addTab(left_hand_tab, "Left Hand")
 
+        # Right hand landmarks tab
+        right_hand_tab = QWidget()
+        right_hand_layout = QVBoxLayout(right_hand_tab)
         self.right_landmarks_table = TableView()
-        analyzed_layout.addWidget(self.right_landmarks_table)
-
-        self.stats_table = TableView()
-        analyzed_layout.addWidget(self.stats_table)
+        right_hand_layout.addWidget(self.right_landmarks_table)
+        self.hand_data_tabs.addTab(right_hand_tab, "Right Hand")
 
         recorded_layout.addLayout(analyzed_layout)
 
@@ -253,113 +260,148 @@ class CameraViewerGUI(QMainWindow):
 
     def setup_settings_ui(self):
         settings_layout = QVBoxLayout()
-        
-        # Analysis Buttons
+
+        # Analysis controls
         analysis_group = QGroupBox("Analysis Control")
-        analysis_layout = QVBoxLayout()
-        
+        analysis_controls = QHBoxLayout()
         self.start_analyze_button = QPushButton("Start Recording")
-        analysis_layout.addWidget(self.start_analyze_button)
-        
         self.stop_analyze_button = QPushButton("Stop Recording")
         self.stop_analyze_button.setEnabled(False)
-        analysis_layout.addWidget(self.stop_analyze_button)
-        
-        analysis_group.setLayout(analysis_layout)
+        analysis_controls.addWidget(self.start_analyze_button)
+        analysis_controls.addWidget(self.stop_analyze_button)
+        analysis_group.setLayout(analysis_controls)
         settings_layout.addWidget(analysis_group)
-        
+
+        # Display controls
+        display_group = QGroupBox("Display Settings")
+        display_layout = QVBoxLayout()
+        self.realtime_heatmap_checkbox = QCheckBox("Show Real-time Heatmap")
+        self.realtime_heatmap_checkbox.setChecked(False)
+        display_layout.addWidget(self.realtime_heatmap_checkbox)
+        display_group.setLayout(display_layout)
+        settings_layout.addWidget(display_group)
+
+        # Generate controls
+        generate_group = QGroupBox("Generate Full Videos")
+        generate_layout = QVBoxLayout()
+        self.generate_trailing_button = QPushButton("Generate Full Trailing")
+        self.generate_heatmap_button = QPushButton("Generate Full Heatmap")
+        generate_layout.addWidget(self.generate_trailing_button)
+        generate_layout.addWidget(self.generate_heatmap_button)
+        generate_group.setLayout(generate_layout)
+        settings_layout.addWidget(generate_group)
+
+        # Save controls
+        save_group = QGroupBox("Save Parts")
+        save_layout = QVBoxLayout()
+        self.save_part_button = QPushButton("Save Part of Movie")
+        self.save_part_trailing_button = QPushButton("Save Part of Trailing")
+        self.save_part_heatmap_button = QPushButton("Save Part of Heatmap")
+        self.save_part_csv_button = QPushButton("Save Part of CSV")
+        save_layout.addWidget(self.save_part_button)
+        save_layout.addWidget(self.save_part_trailing_button)
+        save_layout.addWidget(self.save_part_heatmap_button)
+        save_layout.addWidget(self.save_part_csv_button)
+        save_group.setLayout(save_layout)
+        settings_layout.addWidget(save_group)
+
         # Resolution Settings Group
         resolution_group = QGroupBox("Resolution")
         resolution_layout = QGridLayout()
-        
+
         # Resolution presets
         resolution_layout.addWidget(QLabel("Presets:"), 0, 0)
         self.preset_combo = QComboBox()
         for ratio in self.resolution_presets:
             self.preset_combo.addItem(ratio)
         resolution_layout.addWidget(self.preset_combo, 0, 1)
-        
+
         self.resolution_combo = QComboBox()
         self.resolution_combo.currentTextChanged.connect(self.on_preset_selected)
         resolution_layout.addWidget(self.resolution_combo, 0, 2)
-        
+
         # Manual resolution inputs
         resolution_layout.addWidget(QLabel("Custom Width:"), 1, 0)
         self.camera_width_input = QSpinBox()
         self.camera_width_input.setRange(320, 1920)
-        self.camera_width_input.setValue(self.settings_handler.get_setting("Resolution", "camera_width"))
+        self.camera_width_input.setValue(
+            self.settings_handler.get_setting("Resolution", "camera_width")
+        )
         resolution_layout.addWidget(self.camera_width_input, 1, 1)
-        
+
         resolution_layout.addWidget(QLabel("Custom Height:"), 2, 0)
         self.camera_height_input = QSpinBox()
         self.camera_height_input.setRange(240, 1080)
-        self.camera_height_input.setValue(self.settings_handler.get_setting("Resolution", "camera_height"))
+        self.camera_height_input.setValue(
+            self.settings_handler.get_setting("Resolution", "camera_height")
+        )
         resolution_layout.addWidget(self.camera_height_input, 2, 1)
-        
+
         resolution_group.setLayout(resolution_layout)
         settings_layout.addWidget(resolution_group)
-        
+
         # Trailing Settings Group
         trailing_group = QGroupBox("Trailing")
         trailing_layout = QGridLayout()
-        
+
         self.trail_length_input = QSpinBox()
         self.trail_length_input.setRange(1, 100)
-        self.trail_length_input.setValue(self.settings_handler.get_setting("Trailing", "trail_length"))
-        
+        self.trail_length_input.setValue(
+            self.settings_handler.get_setting("Trailing", "trail_length")
+        )
+
         self.landmark_size_input = QSpinBox()
         self.landmark_size_input.setRange(1, 10)
-        self.landmark_size_input.setValue(self.settings_handler.get_setting("Trailing", "landmark_size"))
-        
+        self.landmark_size_input.setValue(
+            self.settings_handler.get_setting("Trailing", "landmark_size")
+        )
+
         self.alpha_input = QDoubleSpinBox()
         self.alpha_input.setRange(0.1, 1.0)
         self.alpha_input.setSingleStep(0.1)
-        self.alpha_input.setValue(self.settings_handler.get_setting("Trailing", "alpha"))
-        
+        self.alpha_input.setValue(
+            self.settings_handler.get_setting("Trailing", "alpha")
+        )
+
         trailing_layout.addWidget(QLabel("Trail Length:"), 0, 0)
         trailing_layout.addWidget(self.trail_length_input, 0, 1)
         trailing_layout.addWidget(QLabel("Landmark Size:"), 1, 0)
         trailing_layout.addWidget(self.landmark_size_input, 1, 1)
         trailing_layout.addWidget(QLabel("Trail Opacity:"), 2, 0)
         trailing_layout.addWidget(self.alpha_input, 2, 1)
-        
+
         self.black_background_checkbox = QCheckBox("Black Background")
-        self.black_background_checkbox.setChecked(self.settings_handler.get_setting("Trailing", "black_background"))
+        self.black_background_checkbox.setChecked(
+            self.settings_handler.get_setting("Trailing", "black_background")
+        )
         trailing_layout.addWidget(self.black_background_checkbox, 3, 0, 1, 2)
-        
+
         self.alpha_fade_checkbox = QCheckBox("Fade Trail Effect")
-        self.alpha_fade_checkbox.setChecked(self.settings_handler.get_setting("Trailing", "alpha_fade"))
+        self.alpha_fade_checkbox.setChecked(
+            self.settings_handler.get_setting("Trailing", "alpha_fade")
+        )
         trailing_layout.addWidget(self.alpha_fade_checkbox, 4, 0, 1, 2)
-        self.save_trailed_movie_button = QPushButton("Save Trailed Movie")
-        self.save_trailed_movie_button.clicked.connect(self.save_trailed_movie)
-        trailing_layout.addWidget(self.save_trailed_movie_button, 5, 0, 1, 2)
         trailing_group.setLayout(trailing_layout)
-        
-        self.save_partial_csv_button = QPushButton("Save Partial CSV")
-        self.save_partial_csv_button.clicked.connect(self.save_partial_csv)
+        settings_layout.addWidget(trailing_group)
 
         # Add save settings button
         self.save_settings_button = QPushButton("Save Settings")
         self.save_settings_button.clicked.connect(self.save_settings)
-        
-        # Add groups to settings layout
-        settings_layout.addWidget(trailing_group)
-        settings_layout.addWidget(self.save_partial_csv_button)
         settings_layout.addWidget(self.save_settings_button)
+
         settings_layout.addStretch()
-        
         self.settings_widget.setLayout(settings_layout)
 
     def on_preset_selected(self, text):
         if not text:
             return
-        width, height = map(int, text.split('x'))
+        width, height = map(int, text.split("x"))
         self.camera_width_input.setValue(width)
         self.camera_height_input.setValue(height)
 
     def connect_resolution_signals(self):
         self.preset_combo.currentTextChanged.connect(self.update_resolution_presets)
-        
+
     def update_resolution_presets(self, ratio):
         self.resolution_combo.clear()
         if ratio in self.resolution_presets:
@@ -367,50 +409,69 @@ class CameraViewerGUI(QMainWindow):
                 self.resolution_combo.addItem(preset[0])
 
     def update_resolution_display(self, width, height, fps):
-        self.camera_resolution_label.setText(f"Resolution: {width}x{height} | FPS: {fps:.1f}")
+        self.camera_resolution_label.setText(
+            f"Resolution: {width}x{height} | FPS: {fps:.1f}"
+        )
 
     def save_settings(self):
         if not self.validate_resolution():
-            QMessageBox.warning(self, "Invalid Resolution", 
-                              "Please use a valid resolution ratio (1:1, 16:9, or 4:3) within range 320x240 to 1920x1080")
+            QMessageBox.warning(
+                self,
+                "Invalid Resolution",
+                "Please use a valid resolution ratio (1:1, 16:9, or 4:3) within range 320x240 to 1920x1080",
+            )
             return False
 
         # Save all settings
-        self.settings_handler.set_setting("Resolution", "camera_width", self.camera_width_input.value())
-        self.settings_handler.set_setting("Resolution", "camera_height", self.camera_height_input.value())
-        
-        self.settings_handler.set_setting("Trailing", "trail_length", self.trail_length_input.value())
-        self.settings_handler.set_setting("Trailing", "landmark_size", self.landmark_size_input.value())
+        self.settings_handler.set_setting(
+            "Resolution", "camera_width", self.camera_width_input.value()
+        )
+        self.settings_handler.set_setting(
+            "Resolution", "camera_height", self.camera_height_input.value()
+        )
+
+        self.settings_handler.set_setting(
+            "Trailing", "trail_length", self.trail_length_input.value()
+        )
+        self.settings_handler.set_setting(
+            "Trailing", "landmark_size", self.landmark_size_input.value()
+        )
         self.settings_handler.set_setting("Trailing", "alpha", self.alpha_input.value())
-        self.settings_handler.set_setting("Trailing", "black_background", self.black_background_checkbox.isChecked())
-        self.settings_handler.set_setting("Trailing", "alpha_fade", self.alpha_fade_checkbox.isChecked())
+        self.settings_handler.set_setting(
+            "Trailing", "black_background", self.black_background_checkbox.isChecked()
+        )
+        self.settings_handler.set_setting(
+            "Trailing", "alpha_fade", self.alpha_fade_checkbox.isChecked()
+        )
 
         self.settings_handler.save_settings()
-        
+
         # Reconnect camera if it's currently connected
-        if hasattr(self, 'camera_manager') and self.camera_manager.camera:
+        if hasattr(self, "camera_manager") and self.camera_manager.camera:
             self.log("Settings saved, reconnecting camera...")
             self.toggle_camera()  # Disconnect
             self.toggle_camera()  # Connect with new resolution
         else:
             self.log("Settings saved successfully")
-            
-        QMessageBox.information(self, "Settings Saved", "Settings have been saved successfully!")
+
+        QMessageBox.information(
+            self, "Settings Saved", "Settings have been saved successfully!"
+        )
         return True
 
     def validate_resolution(self):
         camera_width = self.camera_width_input.value()
         camera_height = self.camera_height_input.value()
-        
+
         # Basic range check
         if not (320 <= camera_width <= 1920 and 240 <= camera_height <= 1080):
             return False
-            
+
         # Check aspect ratios (1:1, 16:9, 4:3)
         ratio = camera_width / camera_height
-        allowed_ratios = [1.0, 16/9, 4/3]  # 1:1, 16:9, 4:3
+        allowed_ratios = [1.0, 16 / 9, 4 / 3]  # 1:1, 16:9, 4:3
         ratio_tolerance = 0.01  # Allow small deviation
-        
+
         return any(abs(ratio - allowed) < ratio_tolerance for allowed in allowed_ratios)
 
     def validate_and_update_resolution(self):
@@ -438,8 +499,14 @@ class CameraViewerGUI(QMainWindow):
             self.analyzed_label.setPixmap(scaled_pixmap)
             if original_size:
                 current_text = self.original_resolution_label.text()
-                fps_text = " | FPS: --" if " | FPS: " not in current_text else current_text[current_text.find(" | FPS: "):]
-                self.original_resolution_label.setText(f"Original: {original_size[0]}x{original_size[1]}{fps_text}")
+                fps_text = (
+                    " | FPS: --"
+                    if " | FPS: " not in current_text
+                    else current_text[current_text.find(" | FPS: ") :]
+                )
+                self.original_resolution_label.setText(
+                    f"Original: {original_size[0]}x{original_size[1]}{fps_text}"
+                )
         else:
             self.analyzed_label.clear()
             self.original_resolution_label.setText("Original: --x-- | FPS: --")
@@ -453,8 +520,14 @@ class CameraViewerGUI(QMainWindow):
             self.trailed_label.setPixmap(scaled_pixmap)
             if original_size:
                 current_text = self.trailed_resolution_label.text()
-                fps_text = " | FPS: --" if " | FPS: " not in current_text else current_text[current_text.find(" | FPS: "):]
-                self.trailed_resolution_label.setText(f"Original: {original_size[0]}x{original_size[1]}{fps_text}")
+                fps_text = (
+                    " | FPS: --"
+                    if " | FPS: " not in current_text
+                    else current_text[current_text.find(" | FPS: ") :]
+                )
+                self.trailed_resolution_label.setText(
+                    f"Original: {original_size[0]}x{original_size[1]}{fps_text}"
+                )
         else:
             self.trailed_label.clear()
             self.trailed_resolution_label.setText("Original: --x-- | FPS: --")
@@ -468,8 +541,14 @@ class CameraViewerGUI(QMainWindow):
             self.heatmap_label.setPixmap(scaled_pixmap)
             if original_size:
                 current_text = self.heatmap_resolution_label.text()
-                fps_text = " | FPS: --" if " | FPS: " not in current_text else current_text[current_text.find(" | FPS: "):]
-                self.heatmap_resolution_label.setText(f"Original: {original_size[0]}x{original_size[1]}{fps_text}")
+                fps_text = (
+                    " | FPS: --"
+                    if " | FPS: " not in current_text
+                    else current_text[current_text.find(" | FPS: ") :]
+                )
+                self.heatmap_resolution_label.setText(
+                    f"Original: {original_size[0]}x{original_size[1]}{fps_text}"
+                )
         else:
             self.heatmap_label.clear()
             self.heatmap_resolution_label.setText("Original: --x-- | FPS: --")
@@ -516,7 +595,7 @@ class CameraViewerGUI(QMainWindow):
         self.update_heatmap_frame(None)
         self.left_landmarks_table.clear_data()
         self.right_landmarks_table.clear_data()
-        self.stats_table.clear_data()
+        self.overall_stats_table.clear_data()
         self.set_frame_slider_range(0, 0)
         self.frame_number_label.setText("Frame: 0")
 
@@ -532,49 +611,57 @@ class CameraViewerGUI(QMainWindow):
             return str(value)
 
     def update_landmarks_table(self, table, landmarks):
+        if not landmarks:
+            table.clear_data()
+            return
+
+        # Extract frame number
+        frame_number = (
+            landmarks[0][1] if landmarks and landmarks[0][0] == "FRAME" else 0
+        )
+        landmarks = landmarks[1:]  # Remove frame entry from landmarks
+
+        # Prepare data for table
         data = []
-        column_labels = []
+        column_labels = ["Frame", "X", "Y", "Z"]
+        row_labels = []
+
         for landmark in landmarks:
-            if landmark[0] == "FRAME":
-                column_labels.append(landmark[0])
-                data.append(str(landmark[1]))
-            else:
-                column_labels.append(landmark[0])
-                data.append(
-                    f"x: {self.format_value(landmark[1])}\ny: {self.format_value(landmark[2])}\nz: {self.format_value(landmark[3])}"
-                )
-        table.update_data(data, column_labels=column_labels)
+            name, x, y, z = landmark
+            row_labels.append(name)
+            data.append(
+                [
+                    str(frame_number),
+                    self.format_value(x),
+                    self.format_value(y),
+                    self.format_value(z),
+                ]
+            )
+
+        table.update_data(data, row_labels=row_labels, column_labels=column_labels)
         table.resizeRowsToContents()
 
     def update_stats_table(self, parsed_data):
         if parsed_data is None or (
             isinstance(parsed_data, list) and len(parsed_data) == 0
         ):
-            self.stats_table.clear_data()
+            self.overall_stats_table.clear_data()
             return
 
+        # Prepare data for overall stats table
         data = []
         row_labels = list(parsed_data.get("left", {}).keys())
-        column_labels = ["FRAME", "LEFT", "RIGHT"]
-
-        frame_number = (
-            parsed_data.get("frame", 0) if isinstance(parsed_data, dict) else 0
-        )
+        column_labels = ["LEFT", "RIGHT"]
 
         for stat_name in row_labels:
             left_value = parsed_data.get("left", {}).get(stat_name, "N/A")
             right_value = parsed_data.get("right", {}).get(stat_name, "N/A")
-            data.append(
-                [
-                    str(frame_number),
-                    self.format_value(left_value),
-                    self.format_value(right_value),
-                ]
-            )
+            data.append([self.format_value(left_value), self.format_value(right_value)])
 
-        self.stats_table.update_data(
+        self.overall_stats_table.update_data(
             data, row_labels=row_labels, column_labels=column_labels
         )
+        self.overall_stats_table.resizeRowsToContents()
 
     def update_resolution_label(self, frame):
         if frame is not None:
@@ -582,73 +669,84 @@ class CameraViewerGUI(QMainWindow):
             fps = self.get_fps()
             resolution_text = f"Resolution: {width}x{height} | FPS: {fps:.1f}"
             self.resolution_label.setText(resolution_text)
-            
+
     def get_fps(self):
         current_time = time.time()
-        if not hasattr(self, 'last_frame_time'):
+        if not hasattr(self, "last_frame_time"):
             self.last_frame_time = current_time
             return 0.0
-        
+
         fps = 1.0 / (current_time - self.last_frame_time)
         self.last_frame_time = current_time
         return fps
-    
+
     def save_trailed_movie(self):
         """Save a movie with trailed landmarks using current settings and selected frame range"""
         recording_name = self.recording_combo.currentText()
         if not recording_name:
             self.log("No recording selected")
             return
-        
+
         # Get frame range from slider
         start_frame = self.frame_slider.low()
         end_frame = self.frame_slider.high()
-        
+
         # Create output directory
         output_dir = "src/data/trailed_movie"
         os.makedirs(output_dir, exist_ok=True)
-        
+
         # Get current recording name and check for CSV data
-        timestamp = recording_name[10:-4]  # Remove "raw_movie_" prefix and ".mp4" suffix
+        timestamp = recording_name[
+            10:-4
+        ]  # Remove "raw_movie_" prefix and ".mp4" suffix
         csv_filename = f"csv_{timestamp}.csv"
         csv_path = os.path.join("src/data/csv_data", csv_filename)
-        
+
         if not os.path.exists(csv_path):
-            QMessageBox.warning(self, "Warning", "CSV data not found. Please analyze the recording first.")
+            QMessageBox.warning(
+                self,
+                "Warning",
+                "CSV data not found. Please analyze the recording first.",
+            )
             return
-            
+
         # Add frame range to output filename
-        output_path = os.path.join(output_dir, f"trailed_{timestamp}_frames_{start_frame}-{end_frame}.mp4")
-        
+        output_path = os.path.join(
+            output_dir, f"trailed_{timestamp}_frames_{start_frame}-{end_frame}.mp4"
+        )
+
         if os.path.exists(output_path):
-            reply = QMessageBox.question(self, "File exists", 
-                                    "A file with this name already exists. Do you want to replace it?",
-                                    QMessageBox.Yes | QMessageBox.No)
+            reply = QMessageBox.question(
+                self,
+                "File exists",
+                "A file with this name already exists. Do you want to replace it?",
+                QMessageBox.Yes | QMessageBox.No,
+            )
             if reply == QMessageBox.No:
                 return
-        
+
         try:
             self.show_progress_bar(True)
             self.set_progress(0)
-            
+
             # Load the recording
             recording_path = os.path.join("src/data/raw_movie", recording_name)
             cap = cv2.VideoCapture(recording_path)
             width = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
             height = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
             fps = cap.get(cv2.CAP_PROP_FPS)
-            
+
             # Load CSV data
             analyzed_data = []
-            with open(csv_path, mode='r') as file:
+            with open(csv_path, mode="r") as file:
                 reader = csv.DictReader(file)
                 for row in reader:
                     analyzed_data.append(row)
-            
+
             # Create video writer
-            fourcc = cv2.VideoWriter_fourcc(*'mp4v')
+            fourcc = cv2.VideoWriter_fourcc(*"mp4v")
             out = cv2.VideoWriter(output_path, fourcc, fps, (width, height))
-            
+
             # Process frames in selected range
             total_frames = end_frame - start_frame + 1
             for frame_idx in range(start_frame, end_frame + 1):
@@ -657,98 +755,115 @@ class CameraViewerGUI(QMainWindow):
                 ret, frame = cap.read()
                 if not ret:
                     break
-                    
+
                 # Generate trailed frame using current settings
                 trailed_frame = self.visualization_manager.generate_trailed_frame(
-                    frame,
-                    analyzed_data,
-                    frame_idx
+                    frame, analyzed_data, frame_idx
                 )
                 out.write(trailed_frame)
-                
+
                 # Update progress
                 progress = int((frame_idx - start_frame + 1) / total_frames * 100)
                 self.set_progress(progress)
-                
+
             cap.release()
             out.release()
             self.log(f"Saved trailed movie: {output_path}")
-            
+
         except Exception as e:
-            QMessageBox.critical(self, "Error", f"Failed to save trailed movie: {str(e)}")
+            QMessageBox.critical(
+                self, "Error", f"Failed to save trailed movie: {str(e)}"
+            )
         finally:
             self.show_progress_bar(False)
             self.set_progress(0)
-            
+
     def on_min_frame_changed(self, value):
         """Handle minimum frame spinbox change"""
         if value <= self.frame_slider.high():
             self.frame_slider.setLow(value)
-            self.frame_number_label.setText(f"Frames: {value}-{self.frame_slider.high()}")
+            self.frame_number_label.setText(
+                f"Frames: {value}-{self.frame_slider.high()}"
+            )
             self.update_frame_from_slider()
 
     def on_max_frame_changed(self, value):
         """Handle maximum frame spinbox change"""
         if value >= self.frame_slider.low():
             self.frame_slider.setHigh(value)
-            self.frame_number_label.setText(f"Frames: {self.frame_slider.low()}-{value}")
-            
+            self.frame_number_label.setText(
+                f"Frames: {self.frame_slider.low()}-{value}"
+            )
+
     def save_partial_csv(self):
         """Save CSV data for the selected frame range"""
         recording_name = self.recording_combo.currentText()
         if not recording_name:
             self.log("No recording selected")
             return
-            
+
         # Get frame range from slider
         start_frame = self.frame_slider.low()
         end_frame = self.frame_slider.high()
-        
+
         # Create output directory
         output_dir = "src/data/part_csv"
         os.makedirs(output_dir, exist_ok=True)
-        
+
         # Get current recording name and check for CSV data
-        timestamp = recording_name[10:-4]  # Remove "raw_movie_" prefix and ".mp4" suffix
+        timestamp = recording_name[
+            10:-4
+        ]  # Remove "raw_movie_" prefix and ".mp4" suffix
         csv_filename = f"csv_{timestamp}.csv"
-        csv_path = os.path.join(output_dir, csv_filename)
-        
+        csv_path = os.path.join(
+            "src/data/csv_data", csv_filename
+        )  # Read from csv_data directory
+
         if not os.path.exists(csv_path):
-            QMessageBox.warning(self, "Warning", "CSV data not found. Please analyze the recording first.")
+            QMessageBox.warning(
+                self,
+                "Warning",
+                "CSV data not found. Please analyze the recording first.",
+            )
             return
-            
+
         # Create output filename with frame range
         output_filename = f"csv_{timestamp}_frames_{start_frame}-{end_frame}.csv"
         output_path = os.path.join(output_dir, output_filename)
-        
+
         if os.path.exists(output_path):
-            reply = QMessageBox.question(self, "File exists", 
-                                    "A file with this name already exists. Do you want to replace it?",
-                                    QMessageBox.Yes | QMessageBox.No)
+            reply = QMessageBox.question(
+                self,
+                "File exists",
+                "A file with this name already exists. Do you want to replace it?",
+                QMessageBox.Yes | QMessageBox.No,
+            )
             if reply == QMessageBox.No:
                 return
-        
+
         try:
             # Load original CSV data
             analyzed_data = []
-            with open(csv_path, mode='r') as file:
+            with open(csv_path, mode="r") as file:
                 reader = csv.DictReader(file)
                 fieldnames = reader.fieldnames
                 for row in reader:
                     analyzed_data.append(row)
-            
+
             # Extract selected frame range
-            selected_data = analyzed_data[start_frame:end_frame + 1]
-            
+            selected_data = analyzed_data[start_frame : end_frame + 1]
+
             # Write selected data to new CSV
-            with open(output_path, mode='w', newline='') as file:
+            with open(output_path, mode="w", newline="") as file:
                 writer = csv.DictWriter(file, fieldnames=fieldnames)
                 writer.writeheader()
                 for row in selected_data:
                     writer.writerow(row)
-            
+
             self.log(f"Saved partial CSV: {output_path}")
-            QMessageBox.information(self, "Success", f"Saved partial CSV with {len(selected_data)} frames")
-            
+            QMessageBox.information(
+                self, "Success", f"Saved partial CSV with {len(selected_data)} frames"
+            )
+
         except Exception as e:
             QMessageBox.critical(self, "Error", f"Failed to save partial CSV: {str(e)}")
