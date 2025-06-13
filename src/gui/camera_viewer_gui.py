@@ -19,7 +19,7 @@ from PyQt5.QtWidgets import (
     QCheckBox,
 )
 from PyQt5.QtCore import Qt
-from src.utils.settings_handler import SettingsHandler
+from src.managers.settings_handler import SettingsHandler
 from src.gui.table_view import TableView
 import os
 import time
@@ -85,6 +85,7 @@ class CameraViewerGUI(QMainWindow):
 
         # Tab 1: Camera view and controls
         camera_tab = QWidget()
+        self.camera_tab = camera_tab  # Store reference to camera tab
         camera_layout = QVBoxLayout(camera_tab)
 
         # Camera selection and connect button
@@ -137,11 +138,38 @@ class CameraViewerGUI(QMainWindow):
         selection_layout = QHBoxLayout()
         self.recording_combo = QComboBox()
         selection_layout.addWidget(self.recording_combo)
+
+        # Add Load button
+        self.load_button = QPushButton("Load")
+        selection_layout.addWidget(self.load_button)
+
         self.analyze_button = QPushButton("Analyze")
+        self.analyze_button.setEnabled(False)  # Disabled by default
         selection_layout.addWidget(self.analyze_button)
+
         self.refresh_button = QPushButton("Refresh")
         selection_layout.addWidget(self.refresh_button)
         recorded_layout.addLayout(selection_layout)
+
+        # Disable playback controls and generation buttons by default
+        self.start_play_button = QPushButton("Start")
+        self.start_play_button.setEnabled(False)
+        self.pause_play_button = QPushButton("Pause")
+        self.pause_play_button.setEnabled(False)
+        self.stop_play_button = QPushButton("Stop")
+        self.stop_play_button.setEnabled(False)
+        self.save_part_button = QPushButton("Save Part of Movie")
+        self.save_part_button.setEnabled(False)
+        self.save_part_trailing_button = QPushButton("Save Part of Trailing")
+        self.save_part_trailing_button.setEnabled(False)
+        self.save_part_heatmap_button = QPushButton("Save Part of Heatmap")
+        self.save_part_heatmap_button.setEnabled(False)
+        self.save_part_csv_button = QPushButton("Save Part of CSV")
+        self.save_part_csv_button.setEnabled(False)
+        self.generate_trailing_button = QPushButton("Generate Full Trailing")
+        self.generate_trailing_button.setEnabled(False)
+        self.generate_heatmap_button = QPushButton("Generate Full Heatmap")
+        self.generate_heatmap_button.setEnabled(False)
 
         # Analyzed image display
         self.analyzed_frame = QFrame()
@@ -159,7 +187,7 @@ class CameraViewerGUI(QMainWindow):
         self.analyzed_label = QLabel()
         self.analyzed_label.setAlignment(Qt.AlignCenter)
         self.analyzed_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.analyzed_label.setMinimumSize(320, 240)  # Smaller minimum size
+        self.analyzed_label.setMinimumSize(960, 540)  # 16:9 ratio, larger size
         self.original_resolution_label = QLabel("Original: --x-- | FPS: --")
         self.original_resolution_label.setAlignment(Qt.AlignCenter)
         self.original_realtime_checkbox = QCheckBox("Real-time Update")
@@ -177,7 +205,7 @@ class CameraViewerGUI(QMainWindow):
         self.trailed_label = QLabel()
         self.trailed_label.setAlignment(Qt.AlignCenter)
         self.trailed_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.trailed_label.setMinimumSize(320, 240)  # Smaller minimum size
+        self.trailed_label.setMinimumSize(960, 540)  # 16:9 ratio, larger size
         self.trailed_resolution_label = QLabel("Original: --x-- | FPS: --")
         self.trailed_resolution_label.setAlignment(Qt.AlignCenter)
         self.trailed_realtime_checkbox = QCheckBox("Real-time Update")
@@ -195,7 +223,7 @@ class CameraViewerGUI(QMainWindow):
         self.heatmap_label = QLabel()
         self.heatmap_label.setAlignment(Qt.AlignCenter)
         self.heatmap_label.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        self.heatmap_label.setMinimumSize(320, 240)  # Smaller minimum size
+        self.heatmap_label.setMinimumSize(960, 540)  # 16:9 ratio, larger size
         self.heatmap_resolution_label = QLabel("Original: --x-- | FPS: --")
         self.heatmap_resolution_label.setAlignment(Qt.AlignCenter)
         self.heatmap_realtime_checkbox = QCheckBox("Real-time Update")
@@ -219,7 +247,10 @@ class CameraViewerGUI(QMainWindow):
         self.mixed_original_label.setSizePolicy(
             QSizePolicy.Expanding, QSizePolicy.Expanding
         )
-        self.mixed_original_label.setMinimumSize(320, 240)
+        self.mixed_original_label.setMinimumSize(
+            320, 180
+        )  # 16:9 ratio, smaller minimum
+        self.mixed_original_label.setMaximumSize(640, 360)  # Maximum size for high res
         self.mixed_original_realtime_checkbox = QCheckBox("Real-time Update")
         self.mixed_original_realtime_checkbox.setChecked(
             self.settings_handler.get_setting("ViewSettings", "original_realtime")
@@ -236,7 +267,8 @@ class CameraViewerGUI(QMainWindow):
         self.mixed_trailed_label.setSizePolicy(
             QSizePolicy.Expanding, QSizePolicy.Expanding
         )
-        self.mixed_trailed_label.setMinimumSize(320, 240)
+        self.mixed_trailed_label.setMinimumSize(320, 180)  # 16:9 ratio, smaller minimum
+        self.mixed_trailed_label.setMaximumSize(640, 360)  # Maximum size for high res
         self.mixed_trailed_realtime_checkbox = QCheckBox("Real-time Update")
         self.mixed_trailed_realtime_checkbox.setChecked(
             self.settings_handler.get_setting("ViewSettings", "trailed_realtime")
@@ -253,7 +285,10 @@ class CameraViewerGUI(QMainWindow):
         self.mixed_heatmap_label.setSizePolicy(
             QSizePolicy.Expanding, QSizePolicy.Expanding
         )
-        self.mixed_heatmap_label.setMinimumSize(320, 240)
+        self.mixed_heatmap_label.setMinimumSize(
+            640, 360
+        )  # 16:9 ratio, larger since it spans two columns
+        self.mixed_heatmap_label.setMaximumSize(1280, 720)  # Maximum size for high res
         self.mixed_heatmap_realtime_checkbox = QCheckBox("Real-time Update")
         self.mixed_heatmap_realtime_checkbox.setChecked(
             self.settings_handler.get_setting("ViewSettings", "heatmap_realtime")
@@ -268,9 +303,6 @@ class CameraViewerGUI(QMainWindow):
 
         # Playback controls
         playback_layout = QHBoxLayout()
-        self.start_play_button = QPushButton("Start")
-        self.pause_play_button = QPushButton("Pause")
-        self.stop_play_button = QPushButton("Stop")
         playback_layout.addWidget(self.start_play_button)
         playback_layout.addWidget(self.pause_play_button)
         playback_layout.addWidget(self.stop_play_button)
@@ -377,6 +409,117 @@ class CameraViewerGUI(QMainWindow):
 
     def setup_settings_ui(self):
         settings_layout = QVBoxLayout()
+
+        # Resolution settings
+        resolution_group = QGroupBox("Resolution Settings")
+        resolution_layout = QVBoxLayout()
+
+        # Camera resolution
+        camera_res_group = QGroupBox("Recording Resolution")
+        camera_res_layout = QGridLayout()
+
+        # Ratio selection
+        camera_res_layout.addWidget(QLabel("Ratio:"), 0, 0)
+        self.record_preset_combo = QComboBox()
+        self.record_preset_combo.addItems(self.resolution_presets.keys())
+        camera_res_layout.addWidget(self.record_preset_combo, 0, 1)
+
+        # Resolution selection
+        camera_res_layout.addWidget(QLabel("Resolution:"), 1, 0)
+        self.record_resolution_combo = QComboBox()
+        camera_res_layout.addWidget(self.record_resolution_combo, 1, 1)
+
+        # Apply button for camera resolution
+        self.apply_camera_res_button = QPushButton("Apply Camera Resolution")
+        camera_res_layout.addWidget(self.apply_camera_res_button, 2, 0, 1, 2)
+
+        camera_res_group.setLayout(camera_res_layout)
+        resolution_layout.addWidget(camera_res_group)
+
+        # Save resolution
+        save_res_group = QGroupBox("Saving Resolution")
+        save_res_layout = QGridLayout()
+
+        # Ratio selection
+        save_res_layout.addWidget(QLabel("Ratio:"), 0, 0)
+        self.save_preset_combo = QComboBox()
+        self.save_preset_combo.addItems(self.resolution_presets.keys())
+        save_res_layout.addWidget(self.save_preset_combo, 0, 1)
+
+        # Resolution selection
+        save_res_layout.addWidget(QLabel("Resolution:"), 1, 0)
+        self.save_resolution_combo = QComboBox()
+        save_res_layout.addWidget(self.save_resolution_combo, 1, 1)
+
+        # Use Original checkbox
+        self.use_original_res_checkbox = QCheckBox("Use Original Resolution")
+        self.use_original_res_checkbox.setChecked(
+            self.settings_handler.get_setting("SaveResolution", "use_original", True)
+        )
+        save_res_layout.addWidget(self.use_original_res_checkbox, 2, 0, 1, 2)
+
+        save_res_group.setLayout(save_res_layout)
+        resolution_layout.addWidget(save_res_group)
+
+        resolution_group.setLayout(resolution_layout)
+        settings_layout.addWidget(resolution_group)
+
+        # Connect resolution signals
+        self.record_preset_combo.currentTextChanged.connect(
+            self.on_record_preset_changed
+        )
+        self.record_resolution_combo.currentTextChanged.connect(
+            self.on_record_resolution_changed
+        )
+        self.apply_camera_res_button.clicked.connect(self.on_apply_camera_resolution)
+
+        self.save_preset_combo.currentTextChanged.connect(self.on_save_preset_changed)
+        self.save_resolution_combo.currentTextChanged.connect(
+            self.on_save_resolution_changed
+        )
+        self.use_original_res_checkbox.stateChanged.connect(
+            self.on_use_original_res_changed
+        )
+
+        # Initialize resolution presets and select saved values
+        record_res_text = self.settings_handler.get_setting(
+            "Resolution", "selected_resolution", "640x640"
+        )
+        record_width, record_height = map(int, record_res_text.split("x"))
+
+        # Find the ratio for the saved resolution and set the preset combo
+        for ratio, presets in self.resolution_presets.items():
+            for preset_name, w, h in presets:
+                if w == record_width and h == record_height:
+                    self.record_preset_combo.setCurrentText(ratio)
+                    break
+            else:
+                continue
+            break
+
+        self.on_record_preset_changed(self.record_preset_combo.currentText())
+        self.record_resolution_combo.setCurrentText(record_res_text)
+
+        save_res_text = self.settings_handler.get_setting(
+            "SaveResolution", "selected_resolution", "1920x1080"
+        )
+        save_width, save_height = map(int, save_res_text.split("x"))
+
+        # Find the ratio for the saved resolution and set the preset combo
+        for ratio, presets in self.resolution_presets.items():
+            for preset_name, w, h in presets:
+                if w == save_width and h == save_height:
+                    self.save_preset_combo.setCurrentText(ratio)
+                    break
+            else:
+                continue
+            break
+
+        self.on_save_preset_changed(self.save_preset_combo.currentText())
+        self.save_resolution_combo.setCurrentText(save_res_text)
+
+        # Initial state for use_original_res_checkbox
+        self.on_use_original_res_changed(self.use_original_res_checkbox.checkState())
 
         # Analysis controls
         analysis_group = QGroupBox("Analysis Control")
@@ -589,61 +732,34 @@ class CameraViewerGUI(QMainWindow):
         save_layout.addWidget(self.save_part_trailing_button)
         save_layout.addWidget(self.save_part_heatmap_button)
         save_layout.addWidget(self.save_part_csv_button)
+
         save_group.setLayout(save_layout)
         settings_layout.addWidget(save_group)
 
-        # Resolution Settings Group
-        resolution_group = QGroupBox("Resolution")
-        resolution_layout = QGridLayout()
-
-        # Resolution presets
-        resolution_layout.addWidget(QLabel("Presets:"), 0, 0)
-        self.preset_combo = QComboBox()
-        for ratio in self.resolution_presets:
-            self.preset_combo.addItem(ratio)
-        resolution_layout.addWidget(self.preset_combo, 0, 1)
-
-        self.resolution_combo = QComboBox()
-        self.resolution_combo.currentTextChanged.connect(self.on_preset_selected)
-        resolution_layout.addWidget(self.resolution_combo, 0, 2)
-
-        # Manual resolution inputs
-        resolution_layout.addWidget(QLabel("Custom Width:"), 1, 0)
-        self.camera_width_input = QSpinBox()
-        self.camera_width_input.setRange(320, 1920)
-        self.camera_width_input.setValue(
-            self.settings_handler.get_setting("Resolution", "camera_width")
-        )
-        resolution_layout.addWidget(self.camera_width_input, 1, 1)
-
-        resolution_layout.addWidget(QLabel("Custom Height:"), 2, 0)
-        self.camera_height_input = QSpinBox()
-        self.camera_height_input.setRange(240, 1080)
-        self.camera_height_input.setValue(
-            self.settings_handler.get_setting("Resolution", "camera_height")
-        )
-        resolution_layout.addWidget(self.camera_height_input, 2, 1)
-
-        resolution_group.setLayout(resolution_layout)
-        settings_layout.addWidget(resolution_group)
-
         self.settings_widget.setLayout(settings_layout)
 
-    def on_preset_selected(self, text):
-        if not text:
-            return
-        width, height = map(int, text.split("x"))
-        self.camera_width_input.setValue(width)
-        self.camera_height_input.setValue(height)
-
     def connect_resolution_signals(self):
-        self.preset_combo.currentTextChanged.connect(self.update_resolution_presets)
+        self.record_preset_combo.currentTextChanged.connect(
+            self.update_resolution_presets
+        )
+        self.save_preset_combo.currentTextChanged.connect(
+            self.update_resolution_presets
+        )
 
     def update_resolution_presets(self, ratio):
-        self.resolution_combo.clear()
-        if ratio in self.resolution_presets:
-            for preset in self.resolution_presets[ratio]:
-                self.resolution_combo.addItem(preset[0])
+        """Update resolution presets for both record and save"""
+        # Get the sender to determine which combo box triggered the update
+        sender = self.sender()
+        if sender == self.record_preset_combo:
+            self.record_resolution_combo.clear()
+            if ratio in self.resolution_presets:
+                for preset in self.resolution_presets[ratio]:
+                    self.record_resolution_combo.addItem(preset[0])
+        elif sender == self.save_preset_combo:
+            self.save_resolution_combo.clear()
+            if ratio in self.resolution_presets:
+                for preset in self.resolution_presets[ratio]:
+                    self.save_resolution_combo.addItem(preset[0])
 
     def update_resolution_display(self, width, height, fps):
         self.camera_resolution_label.setText(
@@ -651,22 +767,31 @@ class CameraViewerGUI(QMainWindow):
         )
 
     def save_settings(self):
-        if not self.validate_resolution():
-            QMessageBox.warning(
-                self,
-                "Invalid Resolution",
-                "Please use a valid resolution ratio (1:1, 16:9, or 4:3) within range 320x240 to 1920x1080",
+        # Save current selected resolution for camera
+        record_res_text = self.record_resolution_combo.currentText()
+        if record_res_text:
+            width, height = map(int, record_res_text.split("x"))
+            self.settings_handler.set_setting("Resolution", "camera_width", width)
+            self.settings_handler.set_setting("Resolution", "camera_height", height)
+            self.settings_handler.set_setting(
+                "Resolution", "selected_resolution", record_res_text
             )
-            return False
 
-        # Save all settings
+        # Save current selected resolution for saving
+        save_res_text = self.save_resolution_combo.currentText()
+        if save_res_text:
+            width, height = map(int, save_res_text.split("x"))
+            self.settings_handler.set_setting("SaveResolution", "width", width)
+            self.settings_handler.set_setting("SaveResolution", "height", height)
+            self.settings_handler.set_setting(
+                "SaveResolution", "selected_resolution", save_res_text
+            )
+
         self.settings_handler.set_setting(
-            "Resolution", "camera_width", self.camera_width_input.value()
-        )
-        self.settings_handler.set_setting(
-            "Resolution", "camera_height", self.camera_height_input.value()
+            "SaveResolution", "use_original", self.use_original_res_checkbox.isChecked()
         )
 
+        # Save Trailing settings
         self.settings_handler.set_setting(
             "Trailing", "trail_length", self.trail_length_input.value()
         )
@@ -675,12 +800,16 @@ class CameraViewerGUI(QMainWindow):
         )
         self.settings_handler.set_setting("Trailing", "alpha", self.alpha_input.value())
         self.settings_handler.set_setting(
+            "Trailing", "opacity", self.trailing_opacity_input.value()
+        )
+        self.settings_handler.set_setting(
             "Trailing", "black_background", self.black_background_checkbox.isChecked()
         )
         self.settings_handler.set_setting(
             "Trailing", "alpha_fade", self.alpha_fade_checkbox.isChecked()
         )
 
+        # Save Heatmap settings
         self.settings_handler.set_setting(
             "Heatmap", "radius", self.heatmap_radius_input.value()
         )
@@ -702,15 +831,8 @@ class CameraViewerGUI(QMainWindow):
             "Heatmap", "accumulate", self.heatmap_accumulate_checkbox.isChecked()
         )
 
+        # Save settings to file
         self.settings_handler.save_settings()
-
-        # Reconnect camera if it's currently connected
-        if hasattr(self, "camera_manager") and self.camera_manager.camera:
-            self.log("Settings saved, reconnecting camera...")
-            self.toggle_camera()  # Disconnect
-            self.toggle_camera()  # Connect with new resolution
-        else:
-            self.log("Settings saved successfully")
 
         QMessageBox.information(
             self, "Settings Saved", "Settings have been saved successfully!"
@@ -718,8 +840,12 @@ class CameraViewerGUI(QMainWindow):
         return True
 
     def validate_resolution(self):
-        camera_width = self.camera_width_input.value()
-        camera_height = self.camera_height_input.value()
+        """Validate camera resolution settings"""
+        record_res_text = self.record_resolution_combo.currentText()
+        if not record_res_text:
+            return False
+
+        camera_width, camera_height = map(int, record_res_text.split("x"))
 
         # Basic range check
         if not (320 <= camera_width <= 1920 and 240 <= camera_height <= 1080):
@@ -733,13 +859,58 @@ class CameraViewerGUI(QMainWindow):
         return any(abs(ratio - allowed) < ratio_tolerance for allowed in allowed_ratios)
 
     def validate_and_update_resolution(self):
+        """Validate and update resolution if invalid"""
+        # If the currently selected record resolution is invalid, reset to default
         if not self.validate_resolution():
-            self.camera_width_input.setValue(640)
-            self.camera_height_input.setValue(640)
-            self.validate_resolution()
+            default_res_text = self.settings_handler.get_default_settings()[
+                "Resolution"
+            ]["selected_resolution"]
+            default_width, default_height = map(int, default_res_text.split("x"))
+            self.record_resolution_combo.setCurrentText(default_res_text)
+            self.settings_handler.set_setting(
+                "Resolution", "camera_width", default_width
+            )
+            self.settings_handler.set_setting(
+                "Resolution", "camera_height", default_height
+            )
+            self.settings_handler.set_setting(
+                "Resolution", "selected_resolution", default_res_text
+            )
+            self.settings_handler.save_settings()
 
     def get_camera_resolution(self):
-        return (self.camera_width_input.value(), self.camera_height_input.value())
+        """Get current camera resolution from settings"""
+        record_res_text = self.settings_handler.get_setting(
+            "Resolution", "selected_resolution"
+        )
+        if record_res_text:
+            width, height = map(int, record_res_text.split("x"))
+            return (width, height)
+        return (640, 480)  # Default if not found or invalid
+
+    def on_record_resolution_changed(self, text):
+        """Handle record resolution combo box change"""
+        if not text:
+            return
+        # No need to save immediately, will be saved on Apply button click or save_settings
+        # Just update the internal state if needed, but for now, the combo box holds the selected value.
+
+    def on_save_resolution_changed(self, text):
+        """Handle save resolution combo box change"""
+        if not text:
+            return
+        # No need to save immediately, will be saved on save_settings
+        # Just update the internal state if needed.
+
+    def on_apply_camera_resolution(self):
+        """Handle apply camera resolution button click"""
+        self.save_settings()  # This will save all settings, including camera resolution
+        if hasattr(self, "camera_manager") and self.camera_manager.camera:
+            self.log("Applying new camera resolution, reconnecting camera...")
+            self.toggle_camera()  # Disconnect
+            self.toggle_camera()  # Connect with new resolution
+        else:
+            self.log("Camera is not connected. Settings saved.")
 
     def update_camera_frame(self, pixmap):
         scaled_pixmap = pixmap.scaled(
@@ -748,8 +919,9 @@ class CameraViewerGUI(QMainWindow):
         self.camera_label.setPixmap(scaled_pixmap)
 
     def update_analyzed_frame(self, pixmap, original_size=None):
+        """Update the analyzed frame display, maintaining aspect ratio without black background"""
         if pixmap:
-            # Calculate scaling to maintain aspect ratio
+            # Scale to fit the label while maintaining aspect ratio
             label_size = self.analyzed_label.size()
             scaled_pixmap = pixmap.scaled(
                 label_size.width(),
@@ -757,21 +929,7 @@ class CameraViewerGUI(QMainWindow):
                 Qt.KeepAspectRatio,
                 Qt.SmoothTransformation,
             )
-
-            # Center the pixmap in the label
-            x = (label_size.width() - scaled_pixmap.width()) // 2
-            y = (label_size.height() - scaled_pixmap.height()) // 2
-
-            # Create a new pixmap with the label's size and fill with black
-            final_pixmap = QPixmap(label_size)
-            final_pixmap.fill(Qt.black)
-
-            # Draw the scaled image in the center
-            painter = QPainter(final_pixmap)
-            painter.drawPixmap(x, y, scaled_pixmap)
-            painter.end()
-
-            self.analyzed_label.setPixmap(final_pixmap)
+            self.analyzed_label.setPixmap(scaled_pixmap)
 
             if original_size:
                 current_text = self.original_resolution_label.text()
@@ -788,8 +946,9 @@ class CameraViewerGUI(QMainWindow):
             self.original_resolution_label.setText("Original: --x-- | FPS: --")
 
     def update_trailed_frame(self, pixmap, original_size=None):
+        """Update the trailed frame display, maintaining aspect ratio without black background"""
         if pixmap:
-            # Calculate scaling to maintain aspect ratio
+            # Scale to fit the label while maintaining aspect ratio
             label_size = self.trailed_label.size()
             scaled_pixmap = pixmap.scaled(
                 label_size.width(),
@@ -797,21 +956,7 @@ class CameraViewerGUI(QMainWindow):
                 Qt.KeepAspectRatio,
                 Qt.SmoothTransformation,
             )
-
-            # Center the pixmap in the label
-            x = (label_size.width() - scaled_pixmap.width()) // 2
-            y = (label_size.height() - scaled_pixmap.height()) // 2
-
-            # Create a new pixmap with the label's size and fill with black
-            final_pixmap = QPixmap(label_size)
-            final_pixmap.fill(Qt.black)
-
-            # Draw the scaled image in the center
-            painter = QPainter(final_pixmap)
-            painter.drawPixmap(x, y, scaled_pixmap)
-            painter.end()
-
-            self.trailed_label.setPixmap(final_pixmap)
+            self.trailed_label.setPixmap(scaled_pixmap)
 
             if original_size:
                 current_text = self.trailed_resolution_label.text()
@@ -828,8 +973,9 @@ class CameraViewerGUI(QMainWindow):
             self.trailed_resolution_label.setText("Original: --x-- | FPS: --")
 
     def update_heatmap_frame(self, pixmap, original_size=None):
+        """Update the heatmap frame display, maintaining aspect ratio without black background"""
         if pixmap:
-            # Calculate scaling to maintain aspect ratio
+            # Scale to fit the label while maintaining aspect ratio
             label_size = self.heatmap_label.size()
             scaled_pixmap = pixmap.scaled(
                 label_size.width(),
@@ -837,21 +983,7 @@ class CameraViewerGUI(QMainWindow):
                 Qt.KeepAspectRatio,
                 Qt.SmoothTransformation,
             )
-
-            # Center the pixmap in the label
-            x = (label_size.width() - scaled_pixmap.width()) // 2
-            y = (label_size.height() - scaled_pixmap.height()) // 2
-
-            # Create a new pixmap with the label's size and fill with black
-            final_pixmap = QPixmap(label_size)
-            final_pixmap.fill(Qt.black)
-
-            # Draw the scaled image in the center
-            painter = QPainter(final_pixmap)
-            painter.drawPixmap(x, y, scaled_pixmap)
-            painter.end()
-
-            self.heatmap_label.setPixmap(final_pixmap)
+            self.heatmap_label.setPixmap(scaled_pixmap)
 
             if original_size:
                 current_text = self.heatmap_resolution_label.text()
@@ -877,16 +1009,24 @@ class CameraViewerGUI(QMainWindow):
         self.log_text.append(message)
 
     def set_frame_slider_range(self, min_val, max_val):
-        """Set the range of the frame slider"""
+        """Set the range of the frame slider and spinboxes"""
+        # Ensure valid range
+        min_val = max(0, min_val)
+        max_val = max(min_val, max_val)
+
+        # Update slider range and values
         self.frame_slider.setMinimum(min_val)
         self.frame_slider.setMaximum(max_val)
         self.frame_slider.setLow(min_val)
         self.frame_slider.setHigh(max_val)
+
         # Update spinboxes
         self.min_frame_spin.setRange(min_val, max_val)
         self.max_frame_spin.setRange(min_val, max_val)
         self.min_frame_spin.setValue(min_val)
         self.max_frame_spin.setValue(max_val)
+
+        # Update label
         self.frame_number_label.setText(f"Frames: {min_val}-{max_val}")
 
     def get_current_frame(self):
@@ -900,7 +1040,15 @@ class CameraViewerGUI(QMainWindow):
 
     def on_slider_moved(self, low, high):
         """Handle range slider movement"""
+        # Ensure values are within valid range
+        low = max(self.frame_slider.minimum(), min(low, self.frame_slider.maximum()))
+        high = max(self.frame_slider.minimum(), min(high, self.frame_slider.maximum()))
+        high = max(high, low)  # Ensure high is not less than low
+
+        # Update display
         self.frame_number_label.setText(f"Frames: {low}-{high}")
+        self.min_frame_spin.setValue(low)
+        self.max_frame_spin.setValue(high)
         self.update_frame_from_slider()  # This will call the app's method through inheritance
 
     def clear_analysis_data(self):
@@ -1094,19 +1242,35 @@ class CameraViewerGUI(QMainWindow):
 
     def on_min_frame_changed(self, value):
         """Handle minimum frame spinbox change"""
-        if value <= self.frame_slider.high():
-            self.frame_slider.setLow(value)
+        # Clamp value to valid range
+        min_val = max(
+            self.min_frame_spin.minimum(), min(value, self.min_frame_spin.maximum())
+        )
+        if min_val != value:
+            self.min_frame_spin.setValue(min_val)
+            return
+
+        if min_val <= self.frame_slider.high():
+            self.frame_slider.setLow(min_val)
             self.frame_number_label.setText(
-                f"Frames: {value}-{self.frame_slider.high()}"
+                f"Frames: {min_val}-{self.frame_slider.high()}"
             )
             self.update_frame_from_slider()
 
     def on_max_frame_changed(self, value):
         """Handle maximum frame spinbox change"""
-        if value >= self.frame_slider.low():
-            self.frame_slider.setHigh(value)
+        # Clamp value to valid range
+        max_val = max(
+            self.max_frame_spin.minimum(), min(value, self.max_frame_spin.maximum())
+        )
+        if max_val != value:
+            self.max_frame_spin.setValue(max_val)
+            return
+
+        if max_val >= self.frame_slider.low():
+            self.frame_slider.setHigh(max_val)
             self.frame_number_label.setText(
-                f"Frames: {self.frame_slider.low()}-{value}"
+                f"Frames: {self.frame_slider.low()}-{max_val}"
             )
 
     def save_partial_csv(self):
@@ -1284,3 +1448,54 @@ class CameraViewerGUI(QMainWindow):
         """Handle changes to trailing opacity"""
         self.settings_handler.set_setting("Trailing", "opacity", value)
         self.settings_handler.save_settings()
+
+    def on_use_original_res_changed(self, state):
+        """Handle use original resolution checkbox change"""
+        self.settings_handler.set_setting("SaveResolution", "use_original", bool(state))
+        self.settings_handler.save_settings()
+        # Enable/disable save resolution inputs
+        self.save_preset_combo.setEnabled(not bool(state))
+        self.save_resolution_combo.setEnabled(not bool(state))
+
+    def update_mixed_frame(self, label, pixmap, target_size):
+        """Update a frame in the mixed view with proper scaling"""
+        if pixmap:
+            # Get original image size
+            original_width = pixmap.width()
+            original_height = pixmap.height()
+            target_width, target_height = target_size
+
+            # If original is smaller than target in both dimensions, keep original size
+            if original_width <= target_width and original_height <= target_height:
+                label.setPixmap(pixmap)
+            else:
+                # Scale down while maintaining aspect ratio
+                scaled_pixmap = pixmap.scaled(
+                    target_width,
+                    target_height,
+                    Qt.KeepAspectRatio,
+                    Qt.SmoothTransformation,
+                )
+                label.setPixmap(scaled_pixmap)
+        else:
+            label.clear()
+
+    def on_record_preset_changed(self, text):
+        """Handle record resolution preset change"""
+        if not text:
+            return
+        # Update resolution combo box
+        self.record_resolution_combo.clear()
+        if text in self.resolution_presets:
+            for preset in self.resolution_presets[text]:
+                self.record_resolution_combo.addItem(preset[0])
+
+    def on_save_preset_changed(self, text):
+        """Handle save resolution preset change"""
+        if not text:
+            return
+        # Update resolution combo box
+        self.save_resolution_combo.clear()
+        if text in self.resolution_presets:
+            for preset in self.resolution_presets[text]:
+                self.save_resolution_combo.addItem(preset[0])

@@ -11,7 +11,11 @@ hands/
 │   │   ├── raw_movie/            # Original video recordings
 │   │   ├── csv_data/             # Analysis data in CSV format
 │   │   ├── trailed_movie/        # Generated trailing videos
-│   │   └── heatmap_movie/        # Generated heatmap visualization
+│   │   ├── heatmap_movie/        # Generated heatmap visualization
+│   │   ├── partial_movie/        # Partial video exports
+│   │   ├── partial_trailing/     # Partial trailing exports
+│   │   ├── partial_heatmap/      # Partial heatmap exports
+│   │   └── partial_csv/          # Partial CSV exports
 │   ├── gui/
 │   │   ├── camera_viewer_gui.py  # Main GUI implementation
 │   │   └── slider.py             # Custom slider widget
@@ -21,139 +25,143 @@ hands/
 │   │   ├── visualization_manager.py # Visualization generation
 │   │   └── settings_handler.py   # Settings management
 │   └── utils/
-│       ├── drawing_utils.py      # Drawing helper functions
-│       └── settings_handler.py   # Settings utilities
+│       └── drawing_utils.py      # Drawing helper functions
 ├── docs/                         # Documentation resources
 │   ├── screenshots/              # Interface and feature screenshots
-│   │   ├── main_interface.png    # Main application view
-│   │   ├── second_tab_interface.png # Secondary interface view
-│   │   ├── trailing_demo.png     # Trailing effect example
-│   │   ├── heatmap_demo.png      # Heatmap visualization example
-│   │   ├── real_time_demo.png    # Real-time tracking view
-│   │   └── real_time_demo_v2.png # Alternative tracking view
 │   └── demos/                    # Feature demonstration videos
-│       ├── trailing/             # Trailing effect demos
-│       ├── heatmap/              # Heatmap visualization demos
-│       └── realtime/             # Real-time analysis demos
 ├── main.py                      # Application entry point
 ├── requirements.txt             # Project dependencies
 └── settings.json               # Application configuration
 ```
 
-## Directory Overview
+## Application States and Button Behavior
 
-### src/core/
-Core application logic and hand tracking functionality.
+### Video Loading States
+1. **Initial State**
+   - Load button enabled
+   - Analyze button disabled
+   - Save controls disabled
+   - Only Original tab enabled
 
-- **hand_landmarks.py**: Defines landmark points for hand tracking
-- **hand_tracking_app.py**: Main application class integrating all components
+2. **Raw Video Loaded**
+   - Load button enabled (warns if loading new video)
+   - Analyze button enabled
+   - Basic playback controls enabled
+   - Only Original tab and raw video features enabled
+   - Can save partial raw video and basic CSV
 
-### src/data/
-Data storage directories for processing and analysis. All directories are git-ignored.
+3. **Analysis Complete**
+   - Load button enabled (warns if loading new video)
+   - Analyze button enabled
+   - All tabs enabled
+   - All save features enabled
+   - Full visualization controls available
 
-- **raw_movie/**: Original video recordings
-- **csv_data/**: Analyzed hand tracking data in CSV format
-- **trailed_movie/**: Generated trailing visualization videos
-- **heatmap_movie/**: Generated heatmap visualization videos
+### Recording States
+1. **Camera Available**
+   - Connect button enabled
+   - Record resolution controls enabled
+   - Record button disabled
 
-### src/gui/
-User interface components and widgets.
+2. **Camera Connected**
+   - Record button enabled
+   - Resolution can be changed
+   - Live preview active
 
-#### camera_viewer_gui.py
-Main GUI class implementing the application interface.
+3. **Recording Active**
+   - Most controls disabled
+   - Stop recording button enabled
+   - Live preview with indicators
+
+## Manager Classes
+
+### PlaybackManager
+Controls video playback and analysis state.
 - Methods:
-  - `setup_ui()`: Initializes the main UI components
-  - `setup_settings_ui()`: Creates settings panel
-  - `update_analyzed_frame()`: Updates original video frame
-  - `update_trailed_frame()`: Updates trailing visualization
-  - `update_heatmap_frame()`: Updates heatmap visualization
-  - Various event handlers for UI controls
+  - `load_video(path)`: Loads video without analysis
+  - `analyze_video(path)`: Loads and analyzes video
+  - `is_playback_ready()`: Checks if video is loaded
+  - `is_analysis_ready()`: Checks if analysis is complete
+  - `get_frame(index)`: Retrieves frame by index
+  - `play()`, `pause()`, `stop()`: Playback controls
 
-#### slider.py
-Custom range slider implementation for video frame selection.
-- Methods:
-  - `setLow()`: Sets lower bound
-  - `setHigh()`: Sets upper bound
-  - `low()`: Gets lower bound
-  - `high()`: Gets upper bound
-
-### src/managers/
-Management classes for different application components.
-
-#### camera_manager.py
-Handles camera operations and video capture.
-- Methods:
-  - `get_camera_list()`: Lists available cameras
-  - `start_capture()`: Starts video capture
-  - `stop_capture()`: Stops video capture
-  - `get_frame()`: Retrieves current frame
-
-#### playback_manager.py
-Manages video playback and frame handling.
-- Methods:
-  - `load_video()`: Loads video file
-  - `play()`: Starts playback
-  - `pause()`: Pauses playback
-  - `stop()`: Stops playback
-  - `get_frame()`: Gets frame at specific index
-
-#### visualization_manager.py
-Handles different visualization types (trailing, heatmap).
-- Methods:
-  - `generate_trailed_frame()`: Creates trailing visualization
-  - `generate_heatmap_frame()`: Creates heatmap visualization
-
-### src/utils/
-Utility functions and handlers.
-
-#### drawing_utils.py
-Utilities for drawing and color handling.
-- Methods:
-  - `get_hand_colors()`: Returns color scheme for hand landmarks
-  - `get_finger_idx()`: Maps landmark to finger index
-
-#### settings_handler.py
+### SettingsHandler
 Manages application settings and persistence.
+- Settings Categories:
+  - Resolution: Camera and save resolution presets
+  - Trailing: Trail length, opacity, colors
+  - Heatmap: Radius, blur, colormap
+  - SaveResolution: Output video dimensions
 - Methods:
-  - `load_settings()`: Loads settings from file
-  - `save_settings()`: Saves settings to file
-  - `get_setting()`: Retrieves specific setting
-  - `set_setting()`: Updates specific setting
+  - `load_settings()`: Loads from settings.json
+  - `save_settings()`: Persists to settings.json
+  - `get_setting(category, name)`: Retrieves setting
+  - `set_setting(category, name, value)`: Updates setting
+  - `get_default_settings()`: Returns defaults
 
-### docs/
-Documentation resources.
+### VisualizationManager
+Handles visualization generation.
+- Methods:
+  - `generate_trailed_frame()`: Creates trailing effect
+    - Uses trail length and opacity settings
+    - Supports color-coded fingers
+    - Alpha fade option
+  - `generate_heatmap_frame()`: Creates heatmap
+    - Supports multiple colormaps
+    - Adjustable radius and blur
+    - Accumulation options
 
-#### screenshots/
-Application interface images showing different features and views:
-- **main_interface.png**: Main application interface with controls
-- **second_tab_interface.png**: Secondary interface with additional settings
-- **trailing_demo.png**: Example of trailing effect visualization
-- **heatmap_demo.png**: Example of heatmap visualization
-- **real_time_demo.png**: Real-time hand tracking demonstration
-- **real_time_demo_v2.png**: Alternative view of real-time tracking
+## Data Export Features
 
-#### demos/
-Pre-recorded demonstration videos showing application features:
-- **trailing/**: Examples of trailing effect in action
-- **heatmap/**: Examples of heatmap visualization features
-- **realtime/**: Demonstrations of real-time analysis capabilities
+### Full Exports
+- Complete video analysis
+- All frames included
+- Settings from visualization panels applied
 
-Note: The demos directory contains only documentation examples, not user data.
+### Partial Exports
+- Frame range selection via slider
+- Available in both raw and analyzed modes
+- Types:
+  1. Raw Video: Just the selected frames
+  2. CSV: Frame data or analysis data
+  3. Trailing: Visualization with current settings
+  4. Heatmap: Visualization with current settings
 
-## Main Application Files
+## Progress Tracking
+- Progress bars for long operations
+- Shown during:
+  1. Video analysis
+  2. Full video generation
+  3. Partial exports
+  4. CSV operations
+- Proper cleanup in try/finally blocks
 
-### main.py
-Application entry point.
-- Creates QApplication instance
-- Initializes main application window
-- Starts event loop
+## Settings Management
 
-### settings.json
-Configuration file storing application settings:
-- Resolution settings
-- Trailing visualization settings
-- Heatmap visualization settings
-- View settings
+### Resolution Settings
+- Recording presets (4:3, 16:9, 1:1)
+- Save resolution options
+- Original resolution toggle
+- Live preview updates
 
-### requirements.txt
-Project dependencies and versions. 
+### Visualization Settings
+1. **Trailing Settings**
+   - Trail length
+   - Landmark size
+   - Opacity
+   - Background options
+   - Alpha fade
+
+2. **Heatmap Settings**
+   - Radius
+   - Blur amount
+   - Color scheme
+   - Opacity
+   - Background options
+   - Accumulation mode
+
+### Settings Persistence
+- Automatic saving on changes
+- Loaded at startup
+- Separate sections in settings.json
+- Default fallbacks 

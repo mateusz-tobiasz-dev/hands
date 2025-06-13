@@ -117,11 +117,15 @@ class VisualizationManager:
         # Create heatmap overlay
         heatmap = np.zeros(frame.shape[:2], dtype=np.float32)
 
-        # Determine frame range
-        if start_frame is None:
+        # Determine frame range based on accumulate setting and provided range
+        if start_frame is None and end_frame is None:
+            # Normal mode - use accumulate setting
             start_frame = 0 if accumulate else current_frame_index
-        if end_frame is None:
             end_frame = current_frame_index
+        else:
+            # Partial mode - accumulate within the specified range
+            start_frame = start_frame if accumulate else current_frame_index
+            end_frame = end_frame if end_frame is not None else current_frame_index
 
         # Create a list of coordinates for all landmarks
         coordinates = []

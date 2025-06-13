@@ -1,13 +1,14 @@
 {
     "Resolution": {
-        "camera_width": 1920,
-        "camera_height": 1080
+        "camera_width": 640,
+        "camera_height": 480,
+        "selected_resolution": "640x480"
     },
     "Trailing": {
         "trail_length": 50,
         "landmark_size": 6,
-        "alpha": 0.7999999999999999,
-        "opacity": 0.30000000000000016,
+        "alpha": 0.7000000000000001,
+        "opacity": 0.2,
         "black_background": 2,
         "alpha_fade": 2
     },
@@ -16,15 +17,21 @@
         "blur_size": 5,
         "threshold": 0.15,
         "radius": 5,
-        "opacity": 0.9999999999999999,
-        "color_map": "rainbow",
-        "blur_amount": 20,
-        "black_background": true,
-        "accumulate": false
+        "opacity": 1.0,
+        "color_map": "jet",
+        "blur_amount": 10,
+        "black_background": false,
+        "accumulate": true
     },
     "ViewSettings": {
-        "original_realtime": false,
+        "original_realtime": true,
         "trailed_realtime": true,
         "heatmap_realtime": true
+    },
+    "SaveResolution": {
+        "width": 640,
+        "height": 480,
+        "use_original": false,
+        "selected_resolution": "1280x720"
     }
 }

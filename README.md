@@ -81,12 +81,20 @@ A powerful application for analyzing and visualizing hand movements in video rec
   - Import existing videos
   - Export full or partial visualizations
   - Save analysis data in CSV format
+  - Partial video/data export with frame range selection
 
 - **User-friendly Interface**
-  - Intuitive controls
+  - Intuitive controls with state-aware buttons
   - Real-time preview
-  - Customizable settings
-  - Progress tracking
+  - Customizable settings with persistent storage
+  - Progress tracking for long operations
+  - Frame range selection for partial exports
+
+- **Settings Management**
+  - Persistent settings storage
+  - Resolution presets for recording and saving
+  - Customizable visualization parameters
+  - Separate settings for different visualization modes
 
 ## Quick Start
 
@@ -112,22 +120,24 @@ hands/
 ├── src/
 │   ├── core/          # Core application logic
 │   ├── data/          # Data processing and storage (git-ignored)
+│   │   ├── raw_movie/         # Original video recordings
+│   │   ├── csv_data/          # Analysis data in CSV format
+│   │   ├── trailed_movie/     # Generated trailing videos
+│   │   ├── heatmap_movie/     # Generated heatmap visualization
+│   │   ├── partial_movie/     # Partial video exports
+│   │   ├── partial_trailing/  # Partial trailing exports
+│   │   ├── partial_heatmap/   # Partial heatmap exports
+│   │   └── partial_csv/       # Partial CSV exports
 │   ├── gui/           # User interface components
 │   ├── managers/      # System management modules
+│   │   ├── camera_manager.py     # Camera/video input handling
+│   │   ├── playback_manager.py   # Video playback control
+│   │   ├── visualization_manager.py # Visualization generation
+│   │   └── settings_handler.py   # Settings management
 │   └── utils/         # Utility functions
 └── docs/              # Documentation resources
     ├── screenshots/   # Interface and feature screenshots
-    │   ├── main_interface.png
-    │   ├── second_tab_interface.png
-    │   ├── trailing_demo.png
-    │   ├── heatmap_demo.png
-    │   ├── real_time_demo.png
-    │   └── real_time_demo_v2.png
     └── demos/         # Feature demonstration videos
-        ├── trailing/  # Trailing effect demos
-        │   └── demo.gif
-        └── heatmap/   # Heatmap visualization demos
-            └── demo.gif
 ```
 
 ## Requirements

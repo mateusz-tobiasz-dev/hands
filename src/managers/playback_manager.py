@@ -4,25 +4,30 @@ import cv2
 class PlaybackManager:
     def __init__(self):
         self.cap = None
+        self.frames = []
         self.analyzed_data = []
         self.current_frame_index = 0
         self.playing = False
         self.paused = False
+        self.current_recording_path = None
+        self.is_analyzed = False
 
-    def load_recording(self, video_path):
+    def load_recording(self, recording_path):
         """Load a video recording"""
         try:
             if self.cap is not None:
                 self.cap.release()
 
-            self.cap = cv2.VideoCapture(video_path)
+            self.cap = cv2.VideoCapture(recording_path)
             if not self.cap.isOpened():
-                print(f"Failed to open video: {video_path}")
+                print(f"Failed to open video: {recording_path}")
                 return False
 
             # Set initial position
             self.current_frame_index = 0
             self.cap.set(cv2.CAP_PROP_POS_FRAMES, 0)
+            self.current_recording_path = recording_path
+            self.is_analyzed = False  # Reset analysis flag when loading new recording
 
             return True
         except Exception as e:
@@ -61,12 +66,16 @@ class PlaybackManager:
         return int(self.cap.get(cv2.CAP_PROP_FRAME_COUNT)) if self.cap else 0
 
     def is_playback_ready(self):
-        """Check if playback is ready (both video and analysis data available)"""
-        return self.cap is not None and len(self.analyzed_data) > 0
+        """Check if playback is ready"""
+        return self.cap is not None
+
+    def is_analysis_ready(self):
+        """Check if analysis data is available"""
+        return len(self.analyzed_data) > 0
 
     def start_playback(self, timer):
         """Start playback with given timer"""
-        if self.cap is not None and self.analyzed_data:
+        if self.cap is not None:
             self.playing = True
             self.paused = False
             timer.start(30)  # 30ms for ~30fps

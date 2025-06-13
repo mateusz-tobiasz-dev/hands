@@ -1,60 +1,13 @@
 import json
-import os
-
-DEFAULT_SETTINGS = {
-    "Resolution": {"camera_width": 640, "camera_height": 640},
-    "Trailing": {
-        "trail_length": 10,
-        "landmark_size": 2,
-        "alpha": 0.6,
-        "opacity": 0.6,
-        "black_background": False,
-        "alpha_fade": True,
-    },
-    "Heatmap": {
-        "radius": 30,
-        "opacity": 0.6,
-        "color_map": "jet",
-        "blur_amount": 15,
-        "black_background": False,
-        "accumulate": True,
-    },
-    "ViewSettings": {
-        "original_realtime": True,
-        "trailed_realtime": True,
-        "heatmap_realtime": True,
-    },
-}
 
 
 class SettingsHandler:
     def __init__(self):
         self.settings_file = "settings.json"
         self.settings = self.load_settings()
-        if self.settings is None:
-            # Only use defaults if no settings file exists
-            self.settings = DEFAULT_SETTINGS.copy()
-            self.save_settings()
-        else:
-            # Validate and only add missing settings
-            self.validate_settings()
-
-    def validate_settings(self):
-        """Ensure all required settings exist, only add missing ones"""
-        # Add any missing top-level groups
-        for group in DEFAULT_SETTINGS:
-            if group not in self.settings:
-                self.settings[group] = DEFAULT_SETTINGS[group].copy()
-            else:
-                # Only add missing keys in existing groups
-                for key in DEFAULT_SETTINGS[group]:
-                    if key not in self.settings[group]:
-                        self.settings[group][key] = DEFAULT_SETTINGS[group][key]
-
-        # Save if any changes were made
-        self.save_settings()
 
     def is_valid_resolution(self, width, height):
+        """Validate resolution settings"""
         if not isinstance(width, (int, float)) or not isinstance(height, (int, float)):
             return False
 
@@ -158,6 +111,7 @@ class SettingsHandler:
                 "bone",
                 "copper",
                 "gray",
+                "rainbow",  # Added rainbow as it's in our defaults
             ]
             if color_map not in valid_color_maps:
                 print(f"Color map must be one of: {', '.join(valid_color_maps)}")
@@ -168,33 +122,95 @@ class SettingsHandler:
             print(f"Error validating heatmap settings: {e}")
             return False
 
+    def get_default_settings(self):
+        """Get default settings"""
+        return {
+            "Resolution": {
+                "camera_width": 1920,
+                "camera_height": 1080,
+                "selected_resolution": "1920x1080",
+            },
+            "SaveResolution": {
+                "width": 1920,
+                "height": 1080,
+                "use_original": True,
+                "selected_resolution": "1920x1080",
+            },
+            "Trailing": {
+                "trail_length": 50,
+                "landmark_size": 6,
+                "alpha": 0.8,
+                "opacity": 0.3,
+                "black_background": True,
+                "alpha_fade": True,
+            },
+            "Heatmap": {
+                "intensity": 1.5,
+                "blur_size": 5,
+                "threshold": 0.15,
+                "radius": 5,
+                "opacity": 1.0,
+                "color_map": "rainbow",
+                "blur_amount": 20,
+                "black_background": True,
+                "accumulate": False,
+            },
+            "ViewSettings": {
+                "original_realtime": True,
+                "trailed_realtime": True,
+                "heatmap_realtime": True,
+            },
+        }
+
     def load_settings(self):
-        """Load settings from file"""
+        """Load settings from file or create with defaults if not exists"""
         try:
-            if os.path.exists(self.settings_file):
-                with open(self.settings_file, "r") as f:
-                    return json.load(f)
-        except Exception as e:
-            print(f"Error loading settings: {e}")
-        return None
+            with open(self.settings_file, "r") as f:
+                settings = json.load(f)
+                # Update with any missing default settings
+                default_settings = self.get_default_settings()
+                for section, values in default_settings.items():
+                    if section not in settings:
+                        settings[section] = values
+                    else:
+                        for key, value in values.items():
+                            if key not in settings[section]:
+                                settings[section][key] = value
+                return settings
+        except FileNotFoundError:
+            settings = self.get_default_settings()
+            self.save_settings(settings)
+            return settings
 
-    def save_settings(self):
-        """Save current settings to file"""
-        try:
-            with open(self.settings_file, "w") as f:
-                json.dump(self.settings, f, indent=4)
-        except Exception as e:
-            print(f"Error saving settings: {e}")
+    def save_settings(self, settings=None):
+        """Save settings to file"""
+        if settings is None:
+            settings = self.settings
+        with open(self.settings_file, "w") as f:
+            json.dump(settings, f, indent=4)
 
-    def get_setting(self, group, key):
-        """Get a setting value, return None if not found"""
+    def get_setting(self, section, key, default=None):
+        """Get a setting value with optional default
+
+        Args:
+            section (str): Settings section name
+            key (str): Setting key
+            default: Default value if setting not found (default: None)
+
+        Returns:
+            Setting value or default if not found
+        """
         try:
-            return self.settings[group][key]
+            return self.settings[section][key]
         except KeyError:
-            return None
+            return (
+                default
+                if default is not None
+                else self.get_default_settings().get(section, {}).get(key)
+            )
 
-    def set_setting(self, group, key, value):
+    def set_setting(self, section, key, value):
         """Set a setting value"""
-        if group not in self.settings:
-            self.settings[group] = {}
-        self.settings[group][key] = value
+        if section not in self.settings:
+            self.settings[section] = {}
+        self.settings[section][key] = value
